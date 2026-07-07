@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 ferrisetw = "1.2.0"
 ringbuf = "0.5.0"
+phf = { version = "0.14.0", features = ["macros"] }
