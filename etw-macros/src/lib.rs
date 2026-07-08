@@ -1,10 +1,10 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
+    Attribute, Error, Field, Ident, LitInt, LitStr, Meta, Token, Visibility,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
-    Attribute, Error, Field, Ident, LitInt, LitStr, Meta, Token, Visibility,
 };
 
 // ───────────────────────────────────────────────────────────────
@@ -76,7 +76,9 @@ fn parse_etw_field_attr(field: &Field) -> syn::Result<String> {
         .attrs
         .iter()
         .find(|a| a.path().is_ident("etw"))
-        .ok_or_else(|| Error::new_spanned(field, "missing #[etw(prop = \"...\")] attribute on field"))?;
+        .ok_or_else(|| {
+            Error::new_spanned(field, "missing #[etw(prop = \"...\")] attribute on field")
+        })?;
 
     let meta = &etw_attr.meta;
     match meta {
@@ -84,7 +86,10 @@ fn parse_etw_field_attr(field: &Field) -> syn::Result<String> {
             let content = list.parse_args_with(EtwAttrContent::parse)?;
             Ok(content.prop)
         }
-        _ => Err(Error::new_spanned(etw_attr, "expected #[etw(prop = \"...\")]")),
+        _ => Err(Error::new_spanned(
+            etw_attr,
+            "expected #[etw(prop = \"...\")]",
+        )),
     }
 }
 
@@ -353,14 +358,16 @@ impl Parse for EventAttrContent {
 
             if key == "id" {
                 let lit: LitInt = input.parse()?;
-                id = Some(lit.base10_parse::<u16>().map_err(|_| {
-                    Error::new_spanned(&lit, "event id must be a u16 integer")
-                })?);
+                id = Some(
+                    lit.base10_parse::<u16>()
+                        .map_err(|_| Error::new_spanned(&lit, "event id must be a u16 integer"))?,
+                );
             } else if key == "version" {
                 let lit: LitInt = input.parse()?;
-                version = Some(lit.base10_parse::<u8>().map_err(|_| {
-                    Error::new_spanned(&lit, "event version must be a u8 integer")
-                })?);
+                version =
+                    Some(lit.base10_parse::<u8>().map_err(|_| {
+                        Error::new_spanned(&lit, "event version must be a u8 integer")
+                    })?);
             } else {
                 return Err(Error::new_spanned(
                     &key,

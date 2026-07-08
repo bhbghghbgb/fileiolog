@@ -1,3 +1,3 @@
 pub mod etw;
-pub mod event;
+pub mod provider_event;
 pub mod providers;
