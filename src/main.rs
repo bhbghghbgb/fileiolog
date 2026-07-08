@@ -17,20 +17,14 @@ fn main() {
         log::info!("Received Event: {:?}", event);
     };
 
-    // 3. Initialize the manager
-    let mut etw_manager = EtwTraceManager::new("FileIoLog");
-
-    // 4. Start the session
-    if let Err(e) = etw_manager.start(shared_event_callback) {
-        etw_manager
-            .stop()
-            .expect("Error when stopping manager due to initialization failure.");
-        panic!("Application exiting due to initialization failure. {:?}", e);
-    }
+    // 3. Build and start the session
+    let _session = EtwTraceManager::new("FileIoLog")
+        .start(shared_event_callback)
+        .expect("Failed to start ETW trace session");
 
     log::info!("Monitoring logs for 10 seconds...");
     std::thread::sleep(Duration::from_secs(10));
 
     log::info!("Application work period finished. Execution exiting scope...");
-    // etw_manager goes out of scope here; its Drop trait cleans up everything automatically.
+    // _session goes out of scope here; its Drop trait cleans up everything automatically.
 }
