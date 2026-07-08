@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
+use crate::etw::{EtwEvent, EtwEventParse, etw_provider};
 use ferrisetw::EventRecord;
 use ferrisetw::parser::{Parser, ParserError};
 use ferrisetw::provider::Provider;
 use ferrisetw::schema_locator::SchemaLocator;
-use crate::etw::{EtwEvent, etw_provider, EtwEventParse};
 
 pub const PROVIDER_NAME: &str = "Microsoft-Windows-Kernel-File";
 pub const PROVIDER_GUID: &str = "EDD08927-9CC4-4E65-B970-C2560FB5C289";
@@ -728,17 +728,14 @@ etw_provider! {
     }
 }
 
-impl KernelFileEvent {
-    pub fn print(&self) {
-        log::info!("{:?}", self);
-    }
-}
-
-pub fn build_provider() -> Provider {
+pub fn build_provider<F>(callback: F) -> Provider
+where
+    F: Fn(KernelFileEvent) + Send + Sync + 'static,
+{
     Provider::by_guid(PROVIDER_GUID)
-        .add_callback(|record, locator| {
+        .add_callback(move |record, locator| {
             if let Some(event) = KernelFileEvent::try_parse(record, locator) {
-                event.print();
+                callback(event);
             }
         })
         .build()

@@ -15,16 +15,6 @@ fn main() {
 
     log::info!("Starting up ETW Monitor Application...");
 
-    // 2. Enforce Administrative Privileges Early
-    // if !is_admin() {
-    if false {
-        log::error!(
-            "CRITICAL ERROR: This application must be run as an Administrator to manage ETW traces."
-        );
-        log::error!("Please relaunch your terminal or executable with elevated privileges.");
-        exit(1);
-    }
-
     // 3. Pre-emptively stop any orphan sessions from previous crashes
     log::info!(
         "Checking for any lingering ETW sessions named '{}'...",
@@ -75,6 +65,6 @@ fn main() {
     if let Err(e) = trace.stop() {
         log::error!("Failed to stop the trace session cleanly: {:?}", e);
     } else {
-        log::info!("Trace session stopped safely. Goodbye.");
+        log::info!("Trace session stopped safely.");
     }
 }
