@@ -1,0 +1,5 @@
+error: missing #[etw(prop = "...")] attribute on field
+ --> tests/trybuild/02-missing-etw-attr.rs:7:5
+  |
+7 |     pub name: String,
+  |     ^^^^^^^^^^^^^^^^

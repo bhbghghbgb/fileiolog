@@ -1,3 +1,4 @@
+mod etw;
 mod event;
 mod providers;
 

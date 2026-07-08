@@ -1,0 +1,5 @@
+error: struct `MissingAttr` is missing required #[event(id = ..., version = ...)] attribute
+ --> tests/trybuild/04-zero-event-attr.rs:5:20
+  |
+5 |         pub struct MissingAttr {
+  |                    ^^^^^^^^^^^
