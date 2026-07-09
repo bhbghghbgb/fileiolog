@@ -1,8 +1,8 @@
 use std::ptr;
 
 use windows::Win32::System::Diagnostics::Etw::{
-    ControlTraceW, EnableTraceEx2, CONTROLTRACE_HANDLE, EVENT_TRACE_CONTROL_QUERY,
-    EVENT_TRACE_PROPERTIES, WNODE_FLAG_TRACED_GUID,
+    ControlTraceW, EnableTraceEx2, CONTROLTRACE_HANDLE, EVENT_CONTROL_CODE_CAPTURE_STATE,
+    EVENT_TRACE_CONTROL_QUERY, EVENT_TRACE_PROPERTIES, TRACE_LEVEL_NONE, WNODE_FLAG_TRACED_GUID,
 };
 use windows::core::{GUID, PCWSTR};
 
@@ -86,11 +86,11 @@ fn trigger_capture_state(
         EnableTraceEx2(
             handle,
             &provider_guid as *const GUID,
-            2,    // EVENT_CONTROL_CODE_CAPTURE_STATE
-            0,    // level (TRACE_LEVEL_NONE)
+            EVENT_CONTROL_CODE_CAPTURE_STATE.0,
+            TRACE_LEVEL_NONE as u8,
             0,    // match any keyword
             0,    // match all keyword
-            0,    // timeout (0 = infinite)
+            0,    // timeout (0 → infinite)
             None, // enable parameters
         )
     };
