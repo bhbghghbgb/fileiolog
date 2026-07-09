@@ -1,8 +1,11 @@
 use ferrisetw::UserTrace;
-use ferrisetw::trace::{TraceBuilder, TraceError, stop_trace_by_name};
+use ferrisetw::trace::{TraceBuilder, TraceError, TraceTrait, stop_trace_by_name};
+use windows::Win32::System::Diagnostics::Etw::CONTROLTRACE_HANDLE;
+use windows::core::GUID;
 
 use crate::provider_event::ProviderEvent;
 use crate::providers;
+use crate::rundown::request_rundown;
 
 /// Builder for configuring an ETW trace session.
 /// Consumed by `start()` which returns a `EtwTraceSession`.
@@ -32,28 +35,57 @@ impl EtwTraceManager {
     }
 
     /// Starts the ETW trace. Accepts a single unified callback processing `ProviderEvent`.
+    ///
+    /// Always requests rundown (DCStart/DCEnd) for every enabled provider after
+    /// the session starts but before `ProcessTrace` begins processing events.
     pub fn start<F>(self, shared_callback: F) -> Result<EtwTraceSession, TraceError>
     where
         F: Fn(ProviderEvent) + Send + Sync + Clone + 'static,
     {
         log::info!("Creating new ETW session: '{}'...", self.session_name);
 
-        let trace = self
-            .register_providers(shared_callback)
+        // Build the provider list and collect their GUIDs for the rundown request.
+        let (builder, provider_guids) = self.register_providers(shared_callback);
+
+        // Step 1: StartTraceW → EnableTraceEx2(ENABLE) for each provider → OpenTraceW.
+        let (trace, trace_handle) = builder
             .named(self.session_name.clone())
-            .start_and_process()?;
+            .start()?;
+
+        // Step 2: Request rundown (EnableTraceEx2 CAPTURE_STATE)
+        // Must happen before ProcessTrace (see krabsetw etw.hpp:375-378).
+        let query_handle =
+            request_rundown(&self.session_name, &provider_guids)
+                .map_err(|e| TraceError::EtwNativeError(
+                    ferrisetw::native::EvntraceNativeError::IoError(e),
+                ))?;
+
+        // Step 3: (debug only) verify the ControlTraceW-obtained handle matches
+        // the private control_handle we can only see through Debug formatting.
+        #[cfg(debug_assertions)]
+        verify_control_handle(&trace, query_handle);
+
+        // Step 4: Spawn the blocking ProcessTrace on a background thread.
+        std::thread::spawn(move || {
+            let _ = UserTrace::process_from_handle(trace_handle);
+        });
 
         log::info!("ETW Trace session '{}' is now active.", self.session_name);
         log::info!("{:?}", trace);
         Ok(EtwTraceSession {
             session_name: self.session_name,
             trace: Some(trace),
+            control_handle: Some(query_handle),
         })
     }
 
     /// Central place to enable all desired providers.
+    /// Returns the builder plus the list of provider GUIDs (needed for rundown).
     /// Add new providers here with additional `.enable(...)` calls.
-    fn register_providers<F>(&self, shared_callback: F) -> TraceBuilder<UserTrace>
+    fn register_providers<F>(
+        &self,
+        shared_callback: F,
+    ) -> (TraceBuilder<UserTrace>, Vec<GUID>)
     where
         F: Fn(ProviderEvent) + Send + Sync + Clone + 'static,
     {
@@ -62,9 +94,13 @@ impl EtwTraceManager {
             file_cb(ProviderEvent::KernelFile(evt));
         });
 
-        UserTrace::new().enable(file_provider)
+        let guid = file_provider.guid();
+        let builder = UserTrace::new().enable(file_provider);
         // ── Add future providers here ──
-        // .enable(another_provider)
+        // let builder = builder.enable(another_provider);
+        // guids.push(another_provider.guid());
+
+        (builder, vec![guid])
     }
 }
 
@@ -72,6 +108,10 @@ impl EtwTraceManager {
 pub struct EtwTraceSession {
     session_name: String,
     trace: Option<UserTrace>,
+    /// The session's control handle (from `ControlTraceW(QUERY)`).
+    /// Used for requesting rundown and future control operations.
+    #[allow(dead_code)]
+    control_handle: Option<CONTROLTRACE_HANDLE>,
 }
 
 impl EtwTraceSession {
@@ -107,4 +147,46 @@ impl Drop for EtwTraceSession {
         log::info!("Cleaning up ETW resources for '{}'...", self.session_name);
         let _ = self.stop_inner();
     }
+}
+
+// ---------------------------------------------------------------------------
+//  Debug-only verification: compare the ControlTraceW-obtained handle with
+//  the private control_handle visible only through the Debug representation.
+// ---------------------------------------------------------------------------
+#[cfg(debug_assertions)]
+fn verify_control_handle(trace: &UserTrace, query_handle: CONTROLTRACE_HANDLE) {
+    let debug_str = format!("{trace:?}");
+
+    // The Debug output for UserTrace includes:
+    //   control_handle: CONTROLTRACE_HANDLE { Value: <N> }
+    let marker = "control_handle: CONTROLTRACE_HANDLE { Value: ";
+    if let Some(start) = debug_str.find(marker) {
+        let rest = &debug_str[start + marker.len()..];
+        if let Some(end) = rest.find(" }") {
+            let value_str = &rest[..end];
+            if let Ok(parsed) = value_str.parse::<u64>() {
+                let debug_handle = CONTROLTRACE_HANDLE { Value: parsed };
+                if debug_handle.Value == query_handle.Value {
+                    log::info!(
+                        "Rundown handle OK — ControlTraceW handle matches UserTrace \
+                         Debug handle (Value = {})",
+                        query_handle.Value,
+                    );
+                } else {
+                    log::warn!(
+                        "Rundown handle MISMATCH — UserTrace Debug = {}, \
+                         ControlTraceW = {} (using ControlTraceW handle anyway)",
+                        debug_handle.Value,
+                        query_handle.Value,
+                    );
+                }
+                return;
+            }
+        }
+    }
+    log::warn!(
+        "Could not parse control_handle from UserTrace Debug output \
+         (format may have changed); query_handle Value = {}",
+        query_handle.Value,
+    );
 }

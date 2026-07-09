@@ -2,6 +2,7 @@ mod etw;
 mod manager;
 mod provider_event;
 mod providers;
+mod rundown;
 
 use std::time::Duration;
 

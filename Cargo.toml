@@ -11,5 +11,11 @@ env_logger = "0.11.11"
 log = "0.4.33"
 etw-macros = { path = "etw-macros" }
 
+# Must match ferrisetw's internal windows crate version exactly (0.57.0).
+windows = { version = "0.57", features = [
+    "Win32_Foundation",
+    "Win32_System_Diagnostics_Etw",
+] }
+
 [dev-dependencies]
 trybuild = "1"
