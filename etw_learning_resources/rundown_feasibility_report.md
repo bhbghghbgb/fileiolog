@@ -27,259 +27,235 @@ Both handles are created during `TraceBuilder::start()` (line 537–562 in `src/
 
 ---
 
-## 4. Options for Adding Rundown (Ranked)
+## 4. New Finding: Recover Session Handle via `ControlTraceW(QUERY)` (No Fork Needed)
 
-### Option A — Fork `ferrisetw` and add `request_rundown()` to `UserTrace` (Recommended)
+You can use `ControlTraceW` with `EVENT_TRACE_CONTROL_QUERY` and the session **name** to retrieve the session handle, then use it with `EnableTraceEx2`.
 
-Add a public method on `UserTrace` that delegates to `EnableTraceEx2` with `EVENT_CONTROL_CODE_CAPTURE_STATE`:
+### How It Works
+
+`ControlTraceW` with `TraceHandle = 0` + `InstanceName = session_name` + `ControlCode = EVENT_TRACE_CONTROL_QUERY` fills in an `EVENT_TRACE_PROPERTIES` buffer. The `WNODE_HEADER.HistoricalContext` field contains the session handle on output.
+
+From MSDN:
+> **WNODE_HEADER.HistoricalContext** — On output, the handle to the event tracing session. You can use this handle with the `EnableTraceEx2` function.
+
+### Type Layout (confirmed in `windows` crate 0.57)
 
 ```rust
-// In src/trace.rs, impl UserTrace block
-pub fn request_rundown(&self, provider_guid: &GUID) -> Result<(), TraceError> {
+pub union WNODE_HEADER_0 {                      // #[repr(C)] union
+    pub HistoricalContext: u64,
+    pub Anonymous: WNODE_HEADER_0_0,             // { Version: u32, Linkage: u32 }
+}
+
+pub struct EVENT_TRACE_PROPERTIES {
+    pub Wnode: WNODE_HEADER,                     // Wnode.Anonymous1 is WNODE_HEADER_0
+    pub BufferSize: u32,
+    // ... other fields ...
+    pub LoggerNameOffset: u32,
+    // ...
+}
+
+pub struct CONTROLTRACE_HANDLE { pub Value: u64; }
+```
+
+### Key Constants (all available in the `windows` crate)
+
+- `EVENT_TRACE_CONTROL_QUERY` — `EVENT_TRACE_CONTROL` newtype, usable directly
+- `EVENT_CONTROL_CODE_CAPTURE_STATE` — `ENABLECALLBACK_ENABLED_STATE` newtype, use `.0` for raw `u32`
+- `WNODE_FLAG_TRACED_GUID` — `u32`
+
+### Verified: the flow is doable end-to-end
+
+1. Allocate a `vec![0u8; N]` big enough for `EVENT_TRACE_PROPERTIES + session_name + log_file_name`
+2. Cast the buffer to `*mut EVENT_TRACE_PROPERTIES`
+3. Set `Wnode.BufferSize = total_len`, `Wnode.Flags = WNODE_FLAG_TRACED_GUID`, `LoggerNameOffset = offsetof(EVENT_TRACE_PROPERTIES, after struct)`
+4. Copy the wide session name into the buffer at `LoggerNameOffset`
+5. Call `ControlTraceW(CONTROLTRACE_HANDLE { Value: 0 }, session_name_ptr, properties_ptr, EVENT_TRACE_CONTROL_QUERY)`
+6. On success: `let handle = unsafe { (*properties).Wnode.Anonymous1.HistoricalContext }`
+7. Construct `CONTROLTRACE_HANDLE { Value: handle }`
+8. Call `EnableTraceEx2(handle, &provider_guid, EVENT_CONTROL_CODE_CAPTURE_STATE.0, 0, 0, 0, 0, None)`
+
+The `widestring` crate is already a dependency of `ferrisetw`, and the `windows` crate is already linked, so no new dependencies.
+
+---
+
+## 5. Options for Adding Rundown (Ranked)
+
+### Option E (NEW, BEST) — No fork. Call `ControlTraceW(QUERY)` + `EnableTraceEx2` directly
+
+This requires **zero changes to ferrisetw**. You add a helper function to your own `manager.rs` that:
+
+1. Calls `ControlTraceW` by session name with `EVENT_TRACE_CONTROL_QUERY`
+2. Extracts `HistoricalContext` from the output `WNODE_HEADER`
+3. Calls `EnableTraceEx2` with the recovered handle
+
+**You already have the session name** (`EtwTraceManager.session_name`), and the `windows` crate is already linked transitively through `ferrisetw`. You just need to add `Win32_System_Diagnostics_Etw` to your own `Cargo.toml`'s `windows` dependency, or use `unsafe` FFI directly.
+
+#### Full implementation code for `manager.rs`
+
+New helper function:
+
+```rust
+use windows::Win32::System::Diagnostics::Etw::{
+    self as Etw, ControlTraceW, EnableTraceEx2, EVENT_TRACE_CONTROL_QUERY,
+    EVENT_CONTROL_CODE_CAPTURE_STATE, WNODE_FLAG_TRACED_GUID,
+    EVENT_TRACE_PROPERTIES, CONTROLTRACE_HANDLE,
+};
+use windows::core::GUID;
+use std::mem;
+
+/// Retrieve the session handle by querying the trace by name,
+/// then send EVENT_CONTROL_CODE_CAPTURE_STATE to request rundown events.
+pub fn request_rundown(session_name: &str, provider_guid: &GUID) -> Result<(), Box<dyn std::error::Error>> {
+    // Buffer: EVENT_TRACE_PROPERTIES + session name (wide) + log file name (wide)
+    let buf_size = mem::size_of::<EVENT_TRACE_PROPERTIES>() + 512 * mem::size_of::<u16>();
+    let mut buf = vec![0u8; buf_size];
+
+    let properties = buf.as_mut_ptr() as *mut EVENT_TRACE_PROPERTIES;
+
+    // Convert session name to UTF-16
+    let wide_name: Vec<u16> = session_name.encode_utf16().chain(std::iter::once(0)).collect();
+    let logger_name_offset = mem::size_of::<EVENT_TRACE_PROPERTIES>() as u32;
+
     unsafe {
-        Etw::EnableTraceEx2(
-            self.control_handle,
+        // Initialize the EVENT_TRACE_PROPERTIES header
+        (*properties).Wnode.BufferSize = buf_size as u32;
+        (*properties).Wnode.Flags = WNODE_FLAG_TRACED_GUID;
+        (*properties).LoggerNameOffset = logger_name_offset;
+
+        // Copy the session name after the struct
+        let name_dst = buf.as_mut_ptr()
+            .add(logger_name_offset as usize)
+            as *mut u16;
+        std::ptr::copy_nonoverlapping(wide_name.as_ptr(), name_dst, wide_name.len());
+
+        // Query the session — this populates HistoricalContext with the session handle
+        let result = ControlTraceW(
+            CONTROLTRACE_HANDLE { Value: 0 },
+            windows::core::PCWSTR::from_raw(name_dst),
+            properties,
+            EVENT_TRACE_CONTROL_QUERY,
+        );
+
+        if let Err(e) = result {
+            return Err(format!("ControlTraceW(QUERY) failed: {}", e).into());
+        }
+
+        // Read the session handle from HistoricalContext
+        let handle_value = (*properties).Wnode.Anonymous1.HistoricalContext;
+        let session_handle = CONTROLTRACE_HANDLE { Value: handle_value };
+
+        // Request rundown events
+        let result = EnableTraceEx2(
+            session_handle,
             provider_guid as *const GUID,
             EVENT_CONTROL_CODE_CAPTURE_STATE.0,
-            0,  // level
+            0,  // level (0 = current, matches krabsetw)
             0,  // match_any_keyword
             0,  // match_all_keyword
             0,  // timeout
-            None,  // enable_parameters (can include filters if needed)
-        )
+            None,
+        );
+
+        if let Err(e) = result {
+            return Err(format!("EnableTraceEx2(CAPTURE_STATE) failed: {}", e).into());
+        }
     }
-    .ok()
-    .map_err(|e| TraceError::EtwNativeError(
-        crate::native::EvntraceNativeError::IoError(
-            std::io::Error::from_raw_os_error(e.code().0)
-        )
-    ))?;
+
     Ok(())
 }
 ```
 
-**Changes required in `src/native/evntrace.rs`:**
-- Add import: `use windows::Win32::System::Diagnostics::Etw::{..., EVENT_CONTROL_CODE_CAPTURE_STATE};` (the constant exists in the `windows` crate but is not imported)
-
-**Also consider the krabsetw pattern:** For both Option A and B, add `rundown_enabled` field to `Provider`/`ProviderBuilder` and call `EVENT_CONTROL_CODE_CAPTURE_STATE` automatically after `enable_provider` in the `start()` flow (like `ut::enable_rundown()` does in krabsetw). This would match the C++ API pattern.
-
-**Use from your code:**
-```rust
-// After starting the trace
-trace.request_rundown(&"3f68e5c2-3f68-4e5c-a3f6-8e5ca368e5c2".into());
-```
-
----
-
-### Option B — Fork `ferrisetw` to expose `control_handle` only (Minimal change)
-
-Add a single public accessor to `UserTrace`:
-
-```rust
-// In src/trace.rs, impl UserTrace block
-pub fn control_handle(&self) -> ControlHandle {
-    self.control_handle
-}
-```
-
-Then in your code, call `EnableTraceEx2` directly via the `windows` crate:
-
-```rust
-use windows::Win32::System::Diagnostics::Etw::{
-    EnableTraceEx2, EVENT_CONTROL_CODE_CAPTURE_STATE, CONTROLTRACE_HANDLE,
-};
-
-let handle = trace.control_handle();
-unsafe {
-    EnableTraceEx2(
-        handle,
-        &guid as *const _,
-        EVENT_CONTROL_CODE_CAPTURE_STATE.0,
-        0, 0, 0, 0, None,
-    );
-}
-```
-
-**Downside:** Exposes a low-level handle that could be misused (stopping the trace behind the library's back, dangling handles, etc.).
-
----
-
-### Option C — No fork: use `trace_handle` + `ControlTraceW` by session name (Will NOT work)
-
-`ControlTraceW` accepts a session name (by passing a zero handle), but `ControlTraceW` only supports `EVENT_TRACE_CONTROL_QUERY`, `EVENT_TRACE_CONTROL_STOP`, and `EVENT_TRACE_CONTROL_FLUSH` — **not** `EVENT_CONTROL_CODE_CAPTURE_STATE`. You must use `EnableTraceEx2`, which requires the `CONTROLTRACE_HANDLE`.
-
-The `freebasic` example you found uses a manual `hTrace` (`TRACEHANDLE`) from `StartTraceW`, which is the same as `control_handle` in ferrisetw — confirming you need this specific handle.
-
----
-
-### Option D — No fork: add rundown to `TraceBuilder::start()` before returning (Moderate change, requires rebuilding ferrisetw)
-
-Modify `TraceBuilder::start()` to call rundown on providers that opt in, right after the `enable_provider` loop (before `open_trace`). This is the approach krabsetw uses in `ut::enable_rundown()` — called between `enable_providers()` and `ProcessTrace()`.
-
-This still requires modifying `ferrisetw` source (you'd rebuild it as a local path dep).
-
----
-
-## 5. Implementation Plan (Recommended: Option A)
-
-### 5.1 Fork or patch `ferrisetw` locally
-
-In your `Cargo.toml`, switch to a local path:
+**To add the `windows` crate dependency**, add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ferrisetw = { path = "etw_learning_resources/ferrisetw" }
+windows = { version = "0.57", features = ["Win32_System_Diagnostics_Etw", "Win32_Foundation"] }
 ```
 
-### 5.2 Add `EVENT_CONTROL_CODE_CAPTURE_STATE` import
+(Use the same version that ferrisetw pulls in, which is 0.57.)
 
-**File:** `src/native/evntrace.rs`
-- Change line 22 from:
-  ```rust
-  EVENT_CONTROL_CODE_ENABLE_PROVIDER, EVENT_TRACE_CONTROL_QUERY,
-  ```
-  To:
-  ```rust
-  EVENT_CONTROL_CODE_ENABLE_PROVIDER, EVENT_CONTROL_CODE_CAPTURE_STATE, EVENT_TRACE_CONTROL_QUERY,
-  ```
-
-### 5.3 Add `request_rundown()` to `UserTrace`
-
-**File:** `src/trace.rs` — add to the `impl UserTrace` block (after line 293):
-
-```rust
-/// Request rundown events from a specific provider.
-///
-/// This sends `EVENT_CONTROL_CODE_CAPTURE_STATE` to the provider,
-/// causing it to emit state-capture (rundown) events.
-/// Should be called after the trace is started and processing events.
-pub fn request_rundown(&self, provider_guid: &GUID) -> TraceResult<()> {
-    use crate::native::evntrace::filter_invalid_control_handle;
-    use windows::Win32::System::Diagnostics::Etw::EVENT_CONTROL_CODE_CAPTURE_STATE;
-
-    let handle = match filter_invalid_control_handle(self.control_handle) {
-        Some(h) => h,
-        None => return Err(TraceError::EtwNativeError(
-            crate::native::EvntraceNativeError::InvalidHandle,
-        )),
-    };
-
-    let res = unsafe {
-        Etw::EnableTraceEx2(
-            handle,
-            provider_guid as *const GUID,
-            EVENT_CONTROL_CODE_CAPTURE_STATE.0,
-            0, // level - using 0 for rundown (matches krabsetw)
-            0, // match_any_keyword
-            0, // match_all_keyword
-            0, // timeout
-            None,
-        )
-    }
-    .ok();
-
-    res.map_err(|err| {
-        TraceError::EtwNativeError(crate::native::EvntraceNativeError::IoError(
-            std::io::Error::from_raw_os_error(err.code().0),
-        ))
-    })
-}
-```
-
-**Note:** `filter_invalid_control_handle` is `pub(crate)` in `native/evntrace.rs`, so it's accessible within the crate. If you prefer to inline the check, just validate `control_handle.Value != 0`.
-
-### 5.4 Call it from `manager.rs`
-
-After `start_and_process()` returns a live trace:
+Then call it from `EtwTraceManager::start()`:
 
 ```rust
 pub fn start<F>(self, shared_callback: F) -> Result<EtwTraceSession, TraceError>
 where
     F: Fn(ProviderEvent) + Send + Sync + Clone + 'static,
 {
-    log::info!("Creating new ETW session: '{}'...", self.session_name);
-
     let trace = self
         .register_providers(shared_callback)
         .named(self.session_name.clone())
         .start_and_process()?;
 
-    // Request rundown for providers that need it
-    // (e.g., Microsoft-Windows-Kernel-Process for ProcessRundown events)
-    trace.request_rundown(&GUID::from("22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716"))?;
+    // Request rundown after trace is processing
+    if let Err(e) = request_rundown(
+        &self.session_name,
+        &"22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716".into(),  // Microsoft-Windows-Kernel-Process
+    ) {
+        log::warn!("Rundown request failed (may still work): {:?}", e);
+    }
 
-    log::info!("ETW Trace session '{}' is now active.", self.session_name);
-    Ok(EtwTraceSession {
-        session_name: self.session_name,
-        trace: Some(trace),
-    })
+    Ok(EtwTraceSession { session_name: self.session_name, trace: Some(trace) })
 }
 ```
-
-### 5.5 (Optional) Add `rundown_enabled` to `ProviderBuilder`
-
-For a cleaner API matching krabsetw, add a `rundown_enabled(bool)` method to `ProviderBuilder`, store it in `Provider`, then call `request_rundown` automatically for all providers with that flag set. This is the `ut::enable_rundown()` pattern from krabsetw.
 
 ---
 
-## 6. Krabsetw Reference (from `ut.hpp`)
+### Option A — Fork `ferrisetw` and add `request_rundown()` to `UserTrace`
 
-### `filter_settings` struct (line 37–47)
-```cpp
-struct filter_settings {
-    std::set<unsigned short> provider_filter_event_ids_;
-    filter_flags filter_flags_{};
-    bool rundown_enabled_ = false;    // <-- per-provider rundown flag
-};
+(Still valid but no longer necessary if Option E works.)
+
+---
+
+### Option C — Call `EnableTraceEx2` with zero handle
+
+Will NOT work. `EnableTraceEx2` requires a valid `CONTROLTRACE_HANDLE` — there is no `EnableTraceEx2ByName` API.
+
+---
+
+## 6. Implementation Plan (Recommended: Option E)
+
+### Step 1: Add `windows` crate to `Cargo.toml`
+
+```toml
+windows = { version = "0.57", features = ["Win32_System_Diagnostics_Etw", "Win32_Foundation"] }
 ```
 
-### `enable_rundown()` (line 203–220)
-```cpp
-static void enable_rundown(const krabs::trace<krabs::details::ut>& trace) {
-    if (trace.registrationHandle_ == INVALID_PROCESSTRACE_HANDLE)
-        return;
+### Step 2: Add the `request_rundown` helper to `manager.rs`
 
-    for (auto& provider : trace.providers_) {
-        if (!provider.get().rundown_enabled_)
-            continue;
+Use the code from Option E above.
 
-        ULONG status = EnableTraceEx2(trace.registrationHandle_,
-            &provider.get().guid_,
-            EVENT_CONTROL_CODE_CAPTURE_STATE,
-            0,  // level
-            0,  // match_any_keyword
-            0,  // match_all_keyword
-            0,  // timeout
-            NULL);
-        error_check_common_conditions(status);
-    }
-}
+### Step 3: Test with `Microsoft-Windows-Kernel-Process`
+
+Call it after `start_and_process()`. You should see `ProcessRundown` (event ID 15) events in your callback.
+
+### Step 4: Optional — Refine timing
+
+For maximum reliability, use `start()` + `process_from_handle` instead of `start_and_process()` to call `request_rundown()` before `ProcessTrace` begins:
+
+```rust
+let (mut trace, trace_handle) = builder.start()?;
+request_rundown(&session_name, &guid)?;
+std::thread::spawn(move || UserTrace::process_from_handle(trace_handle));
 ```
-
-Called from `trace::start()` right before `ProcessTrace`.
 
 ---
 
 ## 7. Verification
 
-After adding the rundown call:
-- For `Microsoft-Windows-Kernel-Process` (GUID `22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716`), you should receive events like `ProcessRundown` (event ID 15) in addition to `ProcessStart` (event ID 1).
-- For `.NET` runtime, you'd enable `Microsoft-Windows-DotNETRuntimeRundown` as a *separate provider* (this doesn't need `EVENT_CONTROL_CODE_CAPTURE_STATE`; it's a standalone provider that emits rundown events when enabled with the `StartRundownKeyword`).
+- For `Microsoft-Windows-Kernel-Process` (GUID `22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716`), adding `any(0x10)` (WINEVENT_KEYWORD_PROCESS) and requesting rundown should produce events like:
+  - Event ID 1: `ProcessStart`
+  - Event ID 2: `ProcessStop`
+  - Event ID 15: `ProcessRundown`
+- For `.NET` runtime, enable the *separate* `Microsoft-Windows-DotNETRuntimeRundown` provider with `StartRundownKeyword` (0x40) — this doesn't need `EVENT_CONTROL_CODE_CAPTURE_STATE`.
 
 ---
 
-## 8. Window of Opportunity for Rundown
+## 8. Krabsetw Reference
 
-According to krabsetw comments in `etw.hpp` line 377:
+In krabsetw, this is done via `ut::enable_rundown()` (ut.hpp:204) which iterates providers with `rundown_enabled_ == true` and calls `EnableTraceEx2(registrationHandle_, &guid, EVENT_CONTROL_CODE_CAPTURE_STATE, ...)`. The `registrationHandle_` is the same as ferrisetw's `control_handle` and the same value returned by `StartTraceW` and stored in `HistoricalContext`.
 
-> `EnableTraceEx2(EVENT_CONTROL_CODE_CAPTURE_STATE)` must be called very shortly after the trace starts processing with `ProcessTrace`, or the rundown events might get lost.
+---
 
-In practice, calling it after `start_and_process()` (which spawns the `ProcessTrace` thread) is usually fine, but for maximum reliability you should call it before `ProcessTrace` begins. This means you'd need to use `start()` instead of `start_and_process()`, capture both the `UserTrace` and `TraceHandle`, spawn the processing thread **after** the rundown call:
+## 9. Theoretical Unsafe Memory Read (Not Recommended)
 
-```rust
-let (mut trace, trace_handle) = builder.start()?;
-trace.request_rundown(&guid)?;
-std::thread::spawn(move || UserTrace::process_from_handle(trace_handle));
-```
-
-If you go with Option A (fork with `request_rundown`), you can also restructure the builder to accept `rundown` providers and call `enable_rundown()` between `enable_providers()` and `open_trace()` — matching the krabsetw timing exactly.
+Even though `UserTrace` lacks `#[repr(C)]`, you could attempt pointer arithmetic to read the private `control_handle` field. This is **undefined behavior** — Rust's default layout allows field reordering, and both `control_handle` and `trace_handle` are identical `{ Value: u64 }` wrappers, making them indistinguishable by value. Do not rely on this.

@@ -44,6 +44,7 @@ impl EtwTraceManager {
             .start_and_process()?;
 
         log::info!("ETW Trace session '{}' is now active.", self.session_name);
+        log::info!("{:?}", trace);
         Ok(EtwTraceSession {
             session_name: self.session_name,
             trace: Some(trace),
