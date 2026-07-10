@@ -52,7 +52,7 @@ pub fn derive_etw_event(input: TokenStream) -> TokenStream {
                 let conversion = if let Some(convert_with) = &content.convert_with {
                     quote! { #convert_with(__val) }
                 } else {
-                    quote! { <#field_type as crate::etw::EtwPropConvert<#parse_as>>::convert(__val) }
+                    quote! { <#field_type as ::fileiolog::etw::EtwPropConvert<#parse_as>>::convert(__val) }
                 };
                 quote! {{
                     let __val: #parse_as = parser.try_parse(#name)?;
@@ -70,7 +70,7 @@ pub fn derive_etw_event(input: TokenStream) -> TokenStream {
     };
 
     let expanded = quote! {
-        impl crate::etw::EtwEventParse for #struct_name {
+        impl ::fileiolog::etw::EtwEventParse for #struct_name {
             fn try_from_parser(
                 parser: &::ferrisetw::parser::Parser<'_, '_>,
             ) -> Result<Self, ::ferrisetw::parser::ParserError> {
@@ -383,7 +383,7 @@ impl EtwProviderInput {
                 let fields = &v.fields;
                 quote! {
                     #(#attrs)*
-                    #[derive(Debug, Clone, crate::etw::EtwEvent)]
+                    #[derive(Debug, Clone, ::fileiolog::etw::EtwEvent)]
                     #vis struct #name {
                         #fields
                     }
@@ -412,7 +412,7 @@ impl EtwProviderInput {
                 quote! {
                     (#id, #ver) => {
                         Some(Self::#name(
-                            crate::etw::EtwEventParse::try_from_parser(&parser).ok()?,
+                            ::fileiolog::etw::EtwEventParse::try_from_parser(&parser).ok()?,
                         ))
                     }
                 }
@@ -428,7 +428,7 @@ impl EtwProviderInput {
                 quote! {
                     (#id, _) => {
                         Some(Self::#name(
-                            crate::etw::EtwEventParse::try_from_parser(&parser).ok()?,
+                            ::fileiolog::etw::EtwEventParse::try_from_parser(&parser).ok()?,
                         ))
                     }
                 }
