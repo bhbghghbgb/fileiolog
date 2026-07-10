@@ -3,7 +3,7 @@ use fileiolog::etw::etw_provider;
 etw_provider! {
     pub enum NoEvent {
         pub struct MissingAttr {
-            #[etw(prop = "X")]
+            #[etw_prop(name = "X")]
             pub x: u64,
         }
     }

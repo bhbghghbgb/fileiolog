@@ -9,9 +9,9 @@ use fileiolog::etw::{EtwEvent, etw_provider, EtwEventParse};
 
 #[derive(Debug, Clone, EtwEvent)]
 pub struct SimpleEvent {
-    #[etw(prop = "Value")]
+    #[etw_prop(name = "Value")]
     pub value: u64,
-    #[etw(prop = "Name")]
+    #[etw_prop(name = "Name")]
     pub name: String,
 }
 
@@ -19,15 +19,15 @@ pub struct SimpleEvent {
 
 etw_provider! {
     pub enum MyEvent {
-        #[event(id = 1, version = 0)]
+        #[etw_event(id = 1, version = 0)]
         pub struct EventOne {
-            #[etw(prop = "Id")]
+            #[etw_prop(name = "Id")]
             pub id: u64,
         }
 
-        #[event(id = 2, version = 1)]
+        #[etw_event(id = 2, version = 1)]
         pub struct EventTwo {
-            #[etw(prop = "Name")]
+            #[etw_prop(name = "Name")]
             pub name: String,
         }
     }

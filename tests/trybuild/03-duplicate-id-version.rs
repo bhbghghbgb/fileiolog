@@ -2,15 +2,15 @@ use fileiolog::etw::etw_provider;
 
 etw_provider! {
     pub enum DupeEvent {
-        #[event(id = 10, version = 0)]
+        #[etw_event(id = 10, version = 0)]
         pub struct First {
-            #[etw(prop = "X")]
+            #[etw_prop(name = "X")]
             pub x: u64,
         }
 
-        #[event(id = 10, version = 0)]
+        #[etw_event(id = 10, version = 0)]
         pub struct Second {
-            #[etw(prop = "Y")]
+            #[etw_prop(name = "Y")]
             pub y: u64,
         }
     }
