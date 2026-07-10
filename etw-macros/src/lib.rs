@@ -50,16 +50,16 @@ pub fn derive_etw_event(input: TokenStream) -> TokenStream {
             let parse = if let Some(parse_as) = &content.parse_as {
                 let field_type = &f.ty;
                 let conversion = if let Some(convert_with) = &content.convert_with {
-                    quote! { #convert_with(__val) }
+                    quote! { #convert_with(__val)? }
                 } else {
-                    quote! { <#field_type as crate::etw::EtwPropConvert<#parse_as>>::convert(__val) }
+                    quote! { <#field_type as crate::etw::EtwPropConvert<#parse_as>>::convert(__val)? }
                 };
                 quote! {{
-                    let __val: #parse_as = parser.try_parse(#name)?;
+                    let __val: #parse_as = parser.try_parse(#name).map_err(crate::etw::parser_err_to_anyhow)?;
                     #conversion
                 }}
             } else {
-                quote! { parser.try_parse(#name)? }
+                quote! { parser.try_parse(#name).map_err(crate::etw::parser_err_to_anyhow)? }
             };
             Ok(quote! { #field_name: #parse })
         })
@@ -73,7 +73,7 @@ pub fn derive_etw_event(input: TokenStream) -> TokenStream {
         impl crate::etw::EtwEventParse for #struct_name {
             fn try_from_parser(
                 parser: &::ferrisetw::parser::Parser<'_, '_>,
-            ) -> Result<Self, ::ferrisetw::parser::ParserError> {
+            ) -> Result<Self, crate::etw::EtwError> {
                 Ok(Self {
                     #(#field_parses),*
                 })
@@ -411,9 +411,13 @@ impl EtwProviderInput {
                 let name = &v.struct_name;
                 quote! {
                     (#id, #ver) => {
-                        Some(Self::#name(
-                            crate::etw::EtwEventParse::try_from_parser(&parser).ok()?,
-                        ))
+                        match crate::etw::EtwEventParse::try_from_parser(&parser) {
+                            Ok(v) => Some(Self::#name(v)),
+                            Err(e) => {
+                                log::warn!("Failed to parse event {} v{}: {}", #id, #ver, e);
+                                None
+                            }
+                        }
                     }
                 }
             })
@@ -427,9 +431,13 @@ impl EtwProviderInput {
                 let name = &v.struct_name;
                 quote! {
                     (#id, _) => {
-                        Some(Self::#name(
-                            crate::etw::EtwEventParse::try_from_parser(&parser).ok()?,
-                        ))
+                        match crate::etw::EtwEventParse::try_from_parser(&parser) {
+                            Ok(v) => Some(Self::#name(v)),
+                            Err(e) => {
+                                log::warn!("Failed to parse event {} v{}: {}", #id, record.version(), e);
+                                None
+                            }
+                        }
                     }
                 }
             })
@@ -503,7 +511,10 @@ impl EtwProviderInput {
                     match (record.event_id(), record.version()) {
                         #(#exact_match_arms)*
                         #(#wildcard_match_arms)*
-                        _ => None,
+                        _ => {
+                            log::warn!("Unknown event id={} version={}", record.event_id(), record.version());
+                            None
+                        }
                     }
                 }
             }
