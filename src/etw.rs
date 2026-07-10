@@ -1,12 +1,10 @@
-pub use anyhow::Error as EtwError;
-
 /// Trait for parsing an ETW event struct from a ferrisetw parser.
 ///
 /// Implemented by the `#[derive(EtwEvent)]` macro.
 pub trait EtwEventParse: Sized {
     fn try_from_parser(
         parser: &ferrisetw::parser::Parser<'_, '_>,
-    ) -> Result<Self, EtwError>;
+    ) -> Result<Self, ferrisetw::parser::ParserError>;
 }
 
 /// Trait for converting an intermediate ETW parsed type to the desired field type.
@@ -18,26 +16,21 @@ pub trait EtwEventParse: Sized {
 ///
 /// ```ignore
 /// impl EtwPropConvert<ferrisetw::parser::Pointer> for usize {
-///     fn convert(value: ferrisetw::parser::Pointer) -> Result<Self, EtwError> {
-///         Ok(*value)
+///     fn convert(value: ferrisetw::parser::Pointer) -> Self {
+///         *value
 ///     }
 /// }
 /// ```
-pub trait EtwPropConvert<T>: Sized {
-    fn convert(value: T) -> Result<Self, EtwError>;
+pub trait EtwPropConvert<T> {
+    fn convert(value: T) -> Self;
 }
 
 // ── Built-in EtwPropConvert implementations ─────────────────────
 
 impl EtwPropConvert<ferrisetw::parser::Pointer> for usize {
-    fn convert(value: ferrisetw::parser::Pointer) -> Result<Self, EtwError> {
-        Ok(*value)
+    fn convert(value: ferrisetw::parser::Pointer) -> Self {
+        *value
     }
-}
-
-/// Convert a ferrisetw `ParserError` into `EtwError` so it can be used with `?`.
-pub fn parser_err_to_anyhow(e: ferrisetw::parser::ParserError) -> EtwError {
-    EtwError::msg(format!("{:?}", e))
 }
 
 // Re-export the proc-macros so users can `use fileiolog::etw::...`.

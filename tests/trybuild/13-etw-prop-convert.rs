@@ -1,7 +1,7 @@
 // Test 13: #[etw_prop] with parse_as and convert_with
 
 use ferrisetw::parser::Pointer;
-use fileiolog::etw::{EtwEvent, EtwPropConvert, EtwError, etw_provider, EtwEventParse};
+use fileiolog::etw::{EtwEvent, EtwPropConvert, etw_provider, EtwEventParse};
 
 // ── Test trait-based conversion (parse_as only) ──
 
@@ -15,8 +15,8 @@ pub struct WithParseAs {
 
 // ── Test custom conversion (parse_as + convert_with) ──
 
-fn double_it(val: u64) -> Result<u64, EtwError> {
-    Ok(val * 2)
+fn double_it(val: u64) -> u64 {
+    val * 2
 }
 
 #[derive(Debug, Clone, EtwEvent)]
