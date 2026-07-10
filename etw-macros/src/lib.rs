@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
@@ -71,6 +69,8 @@ pub fn derive_etw_event(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/// Parse a single field's `#[etw(prop = "...")]` attribute,
+/// returning the property name string.
 fn parse_etw_field_attr(field: &Field) -> syn::Result<String> {
     let etw_attr = field
         .attrs
@@ -83,7 +83,7 @@ fn parse_etw_field_attr(field: &Field) -> syn::Result<String> {
     let meta = &etw_attr.meta;
     match meta {
         Meta::List(list) => {
-            let content = list.parse_args_with(EtwFieldAttrContent::parse)?;
+            let content = list.parse_args_with(EtwAttrContent::parse)?;
             Ok(content.prop)
         }
         _ => Err(Error::new_spanned(
@@ -93,11 +93,11 @@ fn parse_etw_field_attr(field: &Field) -> syn::Result<String> {
     }
 }
 
-struct EtwFieldAttrContent {
+struct EtwAttrContent {
     prop: String,
 }
 
-impl Parse for EtwFieldAttrContent {
+impl Parse for EtwAttrContent {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let mut prop: Option<String> = None;
 
@@ -121,7 +121,7 @@ impl Parse for EtwFieldAttrContent {
 
         let prop =
             prop.ok_or_else(|| input.error("missing required `prop = \"...\"` in etw attribute"))?;
-        Ok(EtwFieldAttrContent { prop })
+        Ok(EtwAttrContent { prop })
     }
 }
 
@@ -141,16 +141,14 @@ pub fn etw_provider(input: TokenStream) -> TokenStream {
 // ── Parsed input ──────────────────────────────────────────────
 
 struct EtwProviderInput {
-    keyword_mask: Option<u64>,
     enum_vis: Visibility,
     enum_name: Ident,
     variants: Vec<EtwVariant>,
 }
 
 struct EtwVariant {
-    event_id: Option<u16>,
-    event_version: Option<u8>,
-    skip: bool,
+    event_id: u16,
+    event_version: u8,
     attrs: Vec<Attribute>,
     struct_vis: Visibility,
     struct_name: Ident,
@@ -159,29 +157,7 @@ struct EtwVariant {
 
 impl Parse for EtwProviderInput {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        // Parse optional "keywords = 0x..." prefix before the enum
-        let keyword_mask = if input.peek(syn::Ident) {
-            let ident: syn::Ident = input.parse()?;
-            if ident == "keywords" {
-                input.parse::<Token![=]>()?;
-                let lit: LitInt = input.parse()?;
-                let mask = lit.base10_parse::<u64>().map_err(|_| {
-                    Error::new_spanned(&lit, "keyword mask must be a u64 integer")
-                })?;
-                if input.peek(Token![,]) {
-                    input.parse::<Token![,]>()?;
-                }
-                Some(mask)
-            } else {
-                return Err(Error::new_spanned(
-                    &ident,
-                    "expected `keywords = <mask>` or `pub`",
-                ));
-            }
-        } else {
-            None
-        };
-
+        // Parse: [pub] enum Ident { ... }
         let enum_vis: Visibility = input.parse()?;
         input.parse::<Token![enum]>()?;
         let enum_name: Ident = input.parse()?;
@@ -221,35 +197,33 @@ impl Parse for EtwProviderInput {
                 }
             }
 
-            let Some(event_attr) = event_attr else {
-                return Err(Error::new_spanned(
+            let event_attr = event_attr.ok_or_else(|| {
+                Error::new_spanned(
                     &struct_name,
                     format!(
-                        "struct `{struct_name}` is missing required #[event(...)] attribute"
+                        "struct `{struct_name}` is missing required #[event(id = ..., version = ...)] attribute"
                     ),
-                ));
-            };
+                )
+            })?;
 
-            let ev_meta = parse_event_attr(&event_attr)?;
+            let (event_id, event_version) = parse_event_attr(&event_attr)?;
 
             variants.push(EtwVariant {
-                event_id: ev_meta.id,
-                event_version: ev_meta.version,
-                skip: ev_meta.skip,
+                event_id,
+                event_version,
                 attrs: other_attrs,
                 struct_vis,
                 struct_name,
                 fields,
             });
 
-            // Optional comma separator between enum variants
+            // Comma separator between enum variants
             if !content.is_empty() {
                 let _ = content.parse::<Token![,]>();
             }
         }
 
         Ok(EtwProviderInput {
-            keyword_mask,
             enum_vis,
             enum_name,
             variants,
@@ -257,97 +231,18 @@ impl Parse for EtwProviderInput {
     }
 }
 
-// ── Event attribute content ───────────────────────────────────
-
-struct EventAttrContent {
-    id: Option<u16>,
-    version: Option<u8>,
-    skip: bool,
-}
-
-impl Parse for EventAttrContent {
-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let mut id: Option<u16> = None;
-        let mut version: Option<u8> = None;
-        let mut skip = false;
-
-        while !input.is_empty() {
-            let key: Ident = input.parse()?;
-
-            if key == "skip" {
-                skip = true;
-            } else {
-                input.parse::<Token![=]>()?;
-
-                if key == "id" {
-                    let lit: LitInt = input.parse()?;
-                    id = Some(lit.base10_parse::<u16>().map_err(|_| {
-                        Error::new_spanned(&lit, "event id must be a u16 integer")
-                    })?);
-                } else if key == "version" {
-                    let lit: LitInt = input.parse()?;
-                    version = Some(lit.base10_parse::<u8>().map_err(|_| {
-                        Error::new_spanned(&lit, "event version must be a u8 integer")
-                    })?);
-                } else {
-                    return Err(Error::new_spanned(
-                        &key,
-                        format!(
-                            "unknown event attribute key `{key}`; expected `id`, `version`, or `skip`"
-                        ),
-                    ));
-                }
-            }
-
-            if !input.is_empty() && input.peek(Token![,]) {
-                input.parse::<Token![,]>()?;
-            }
-        }
-
-        if !skip && id.is_none() {
-            return Err(input.error("missing required `id` in event attribute"));
-        }
-
-        Ok(EventAttrContent { id, version, skip })
-    }
-}
-
-fn parse_event_attr(attr: &Attribute) -> syn::Result<EventAttrContent> {
-    let meta = &attr.meta;
-    match meta {
-        Meta::List(list) => list.parse_args_with(EventAttrContent::parse),
-        _ => Err(Error::new_spanned(
-            attr,
-            "expected #[event(id = <int>, version = <int>)] or #[event(skip)]",
-        )),
-    }
-}
-
-// ── Code generation ───────────────────────────────────────────
-
 impl EtwProviderInput {
     fn expand(&self) -> syn::Result<TokenStream> {
         // ── Check for duplicate (id, version) pairs ──────────
-        let mut seen: BTreeSet<(Option<u16>, Option<u8>)> = BTreeSet::new();
+        let mut seen: std::collections::BTreeSet<(u16, u8)> = std::collections::BTreeSet::new();
         for v in &self.variants {
-            if v.skip {
-                continue;
-            }
             let key = (v.event_id, v.event_version);
             if !seen.insert(key) {
-                let id_display = match v.event_id {
-                    Some(id) => id.to_string(),
-                    None => "?".to_string(),
-                };
-                let ver_display = match v.event_version {
-                    Some(ver) => format!("{ver}"),
-                    None => "any".to_string(),
-                };
                 return Err(Error::new_spanned(
                     &v.struct_name,
                     format!(
-                        "duplicate event spec (id = {id_display}, version = {ver_display}) \
-                         in etw_provider! block"
+                        "duplicate (id, version) pair ({}, {}) in etw_provider! block",
+                        v.event_id, v.event_version
                     ),
                 ));
             }
@@ -356,11 +251,9 @@ impl EtwProviderInput {
         let enum_vis = &self.enum_vis;
         let enum_name = &self.enum_name;
 
-        let active_variants: Vec<&EtwVariant> =
-            self.variants.iter().filter(|v| !v.skip).collect();
-
         // ── Generate each struct ─────────────────────────────
-        let struct_defs: Vec<_> = active_variants
+        let struct_defs: Vec<_> = self
+            .variants
             .iter()
             .map(|v| {
                 let attrs = &v.attrs;
@@ -378,7 +271,8 @@ impl EtwProviderInput {
             .collect();
 
         // ── Enum variants ────────────────────────────────────
-        let enum_variants: Vec<_> = active_variants
+        let enum_variants: Vec<_> = self
+            .variants
             .iter()
             .map(|v| {
                 let name = &v.struct_name;
@@ -387,81 +281,23 @@ impl EtwProviderInput {
             .collect();
 
         // ── try_parse match arms ─────────────────────────────
-        // Order: versioned arms first, then version-less arms (for the same event_id).
-        // This way versioned ones take precedence when both exist.
-        let mut id_groups: BTreeMap<u16, Vec<&EtwVariant>> = BTreeMap::new();
-        for v in &active_variants {
-            if let Some(id) = v.event_id {
-                id_groups.entry(id).or_default().push(v);
-            }
-        }
-        let match_arms: Vec<_> = id_groups
-            .values()
-            .flat_map(|variants| {
-                let mut sorted = variants.clone();
-                // versioned (Some) before version-less (None)
-                sorted.sort_by_key(|v| v.event_version.is_none());
-                sorted.into_iter().map(|v| {
-                    let id = v.event_id.unwrap();
-                    let name = &v.struct_name;
-                    match v.event_version {
-                        Some(ver) => {
-                            quote! {
-                                (#id, #ver) => {
-                                    Some(Self::#name(
-                                        EtwEventParse::try_from_parser(&parser).ok()?,
-                                    ))
-                                }
-                            }
-                        }
-                        None => {
-                            quote! {
-                                (#id, _) => {
-                                    Some(Self::#name(
-                                        EtwEventParse::try_from_parser(&parser).ok()?,
-                                    ))
-                                }
-                            }
-                        }
+        let match_arms: Vec<_> = self
+            .variants
+            .iter()
+            .map(|v| {
+                let id = v.event_id;
+                let ver = v.event_version;
+                let name = &v.struct_name;
+                quote! {
+                    (#id, #ver) => {
+                        Some(Self::#name(
+                            EtwEventParse::try_from_parser(&parser)
+                                .ok()?,
+                        ))
                     }
-                })
+                }
             })
             .collect();
-
-        use std::collections::BTreeMap;
-
-        // ── Event IDs for ByEventIds filter ─────────────────
-        let mut unique_ids: Vec<u16> = active_variants
-            .iter()
-            .filter_map(|v| v.event_id)
-            .collect();
-        unique_ids.sort();
-        unique_ids.dedup();
-
-        // ── build_provider function ─────────────────────────
-        let any_method = self
-            .keyword_mask
-            .map(|mask| quote! { .any(#mask) })
-            .unwrap_or_else(|| quote! {});
-
-        let build_provider = quote! {
-            pub fn build_provider<F>(callback: F) -> Provider
-            where
-                F: Fn(#enum_name) + Send + Sync + 'static,
-            {
-                Provider::by_guid(PROVIDER_GUID)
-                    .add_callback(move |record, locator| {
-                        if let Some(event) = #enum_name::try_parse(record, locator) {
-                            callback(event);
-                        }
-                    })
-                    #any_method
-                    .add_filter(EventFilter::ByEventIds(
-                        vec![#(#unique_ids),*],
-                    ))
-                    .build()
-            }
-        };
 
         let expanded = quote! {
             #(#struct_defs)*
@@ -486,10 +322,68 @@ impl EtwProviderInput {
                     }
                 }
             }
-
-            #build_provider
         };
 
         Ok(TokenStream::from(expanded))
+    }
+}
+
+fn parse_event_attr(attr: &Attribute) -> syn::Result<(u16, u8)> {
+    let meta = &attr.meta;
+    match meta {
+        Meta::List(list) => {
+            let ev = list.parse_args_with(EventAttrContent::parse)?;
+            Ok((ev.id, ev.version))
+        }
+        _ => Err(Error::new_spanned(
+            attr,
+            "expected #[event(id = <int>, version = <int>)]",
+        )),
+    }
+}
+
+struct EventAttrContent {
+    id: u16,
+    version: u8,
+}
+
+impl Parse for EventAttrContent {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let mut id: Option<u16> = None;
+        let mut version: Option<u8> = None;
+
+        while !input.is_empty() {
+            let key: Ident = input.parse()?;
+            input.parse::<Token![=]>()?;
+
+            if key == "id" {
+                let lit: LitInt = input.parse()?;
+                id = Some(
+                    lit.base10_parse::<u16>()
+                        .map_err(|_| Error::new_spanned(&lit, "event id must be a u16 integer"))?,
+                );
+            } else if key == "version" {
+                let lit: LitInt = input.parse()?;
+                version =
+                    Some(lit.base10_parse::<u8>().map_err(|_| {
+                        Error::new_spanned(&lit, "event version must be a u8 integer")
+                    })?);
+            } else {
+                return Err(Error::new_spanned(
+                    &key,
+                    format!("unknown event attribute key `{key}`; expected `id` or `version`"),
+                ));
+            }
+
+            if !input.is_empty() {
+                input.parse::<Token![,]>()?;
+            }
+        }
+
+        let id = id.ok_or_else(|| input.error("missing required `id` in event attribute"))?;
+        let version =
+            version.ok_or_else(|| input.error("missing required `version` in event attribute"))?;
+
+        Ok(EventAttrContent { id, version })
     }
 }

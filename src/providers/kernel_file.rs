@@ -10,7 +10,6 @@ pub const PROVIDER_NAME: &str = "Microsoft-Windows-Kernel-File";
 pub const PROVIDER_GUID: &str = "EDD08927-9CC4-4E65-B970-C2560FB5C289";
 
 etw_provider! {
-    keywords = 0x1FF0,
     pub enum KernelFileEvent {
         // ── Event ID 10 ──────────────────────────────────────
         #[event(id = 10, version = 0)]
@@ -727,4 +726,19 @@ etw_provider! {
             pub info_class: u32,
         }
     }
+}
+
+pub fn build_provider<F>(callback: F) -> Provider
+where
+    F: Fn(KernelFileEvent) + Send + Sync + 'static,
+{
+    Provider::by_guid(PROVIDER_GUID)
+        .add_callback(move |record, locator| {
+            if let Some(event) = KernelFileEvent::try_parse(record, locator) {
+                callback(event);
+            }
+        })
+        .any(0xf0010000000003ff) // example
+        .add_filter(EventFilter::ByEventIds(vec![34, 33])) // example
+        .build()
 }
