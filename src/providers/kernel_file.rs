@@ -3,7 +3,7 @@
 use crate::etw::{EtwEvent, EtwEventParse, etw_provider};
 use ferrisetw::EventRecord;
 use ferrisetw::parser::{Parser, ParserError};
-use ferrisetw::provider::Provider;
+use ferrisetw::provider::{EventFilter, Provider};
 use ferrisetw::schema_locator::SchemaLocator;
 
 pub const PROVIDER_NAME: &str = "Microsoft-Windows-Kernel-File";
@@ -738,5 +738,7 @@ where
                 callback(event);
             }
         })
+        .any(0xf0010000000003ff) // example
+        .add_filter(EventFilter::ByEventIds(vec![34, 33])) // example
         .build()
 }

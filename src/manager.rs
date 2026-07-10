@@ -48,17 +48,14 @@ impl EtwTraceManager {
         let (builder, provider_guids) = self.register_providers(shared_callback);
 
         // Step 1: StartTraceW → EnableTraceEx2(ENABLE) for each provider → OpenTraceW.
-        let (trace, trace_handle) = builder
-            .named(self.session_name.clone())
-            .start()?;
+        let (trace, trace_handle) = builder.named(self.session_name.clone()).start()?;
 
         // Step 2: Request rundown (EnableTraceEx2 CAPTURE_STATE)
         // Must happen before ProcessTrace (see krabsetw etw.hpp:375-378).
-        let query_handle =
-            request_rundown(&self.session_name, &provider_guids)
-                .map_err(|e| TraceError::EtwNativeError(
-                    ferrisetw::native::EvntraceNativeError::IoError(e),
-                ))?;
+        let query_handle = request_rundown(&self.session_name, &provider_guids).map_err(|e| {
+            TraceError::EtwNativeError(ferrisetw::native::EvntraceNativeError::IoError(e))
+        })?;
+        // let query_handle = CONTROLTRACE_HANDLE { Value: 0 };
 
         // Step 3: (debug only) verify the ControlTraceW-obtained handle matches
         // the private control_handle we can only see through Debug formatting.
@@ -82,10 +79,7 @@ impl EtwTraceManager {
     /// Central place to enable all desired providers.
     /// Returns the builder plus the list of provider GUIDs (needed for rundown).
     /// Add new providers here with additional `.enable(...)` calls.
-    fn register_providers<F>(
-        &self,
-        shared_callback: F,
-    ) -> (TraceBuilder<UserTrace>, Vec<GUID>)
+    fn register_providers<F>(&self, shared_callback: F) -> (TraceBuilder<UserTrace>, Vec<GUID>)
     where
         F: Fn(ProviderEvent) + Send + Sync + Clone + 'static,
     {

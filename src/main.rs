@@ -23,8 +23,8 @@ fn main() {
         .start(shared_event_callback)
         .expect("Failed to start ETW trace session");
 
-    log::info!("Monitoring logs for 10 seconds...");
-    std::thread::sleep(Duration::from_secs(1));
+    log::info!("Monitoring logs for 3 seconds...");
+    std::thread::sleep(Duration::from_secs(3));
 
     log::info!("Application work period finished. Execution exiting scope...");
     // _session goes out of scope here; its Drop trait cleans up everything automatically.
