@@ -13,4 +13,6 @@ fn trybuild_tests() {
     t.pass("tests/trybuild/10-mask-all.rs");
     t.pass("tests/trybuild/11-mask-partial.rs");
     t.compile_fail("tests/trybuild/12-duplicate-versionless.rs");
+    t.pass("tests/trybuild/13-etw-prop-convert.rs");
+    t.compile_fail("tests/trybuild/14-convert-without-parse-as.rs");
 }

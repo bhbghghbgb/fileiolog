@@ -7,5 +7,31 @@ pub trait EtwEventParse: Sized {
     ) -> Result<Self, ferrisetw::parser::ParserError>;
 }
 
+/// Trait for converting an intermediate ETW parsed type to the desired field type.
+///
+/// Used by `#[etw_prop(name = "...", parse_as = IntermediateType)]` in the derive macro.
+/// When `convert_with` is not specified, the macro generates a call to `EtwPropConvert::convert`.
+///
+/// # Example
+///
+/// ```ignore
+/// impl EtwPropConvert<ferrisetw::parser::Pointer> for usize {
+///     fn convert(value: ferrisetw::parser::Pointer) -> Self {
+///         *value
+///     }
+/// }
+/// ```
+pub trait EtwPropConvert<T> {
+    fn convert(value: T) -> Self;
+}
+
+// ── Built-in EtwPropConvert implementations ─────────────────────
+
+impl EtwPropConvert<ferrisetw::parser::Pointer> for usize {
+    fn convert(value: ferrisetw::parser::Pointer) -> Self {
+        *value
+    }
+}
+
 // Re-export the proc-macros so users can `use fileiolog::etw::...`.
 pub use etw_macros::{etw_provider, EtwEvent};

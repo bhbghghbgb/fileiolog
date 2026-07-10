@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Attribute, Error, Field, Ident, LitInt, LitStr, Meta, Token, Visibility,
+    Attribute, Error, Field, Ident, LitInt, LitStr, Meta, Path, Token, Type, Visibility,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
@@ -45,8 +45,23 @@ pub fn derive_etw_event(input: TokenStream) -> TokenStream {
                 .ident
                 .as_ref()
                 .expect("named struct fields always have idents");
-            let name = parse_etw_field_attr(f)?;
-            Ok(quote! { #field_name: parser.try_parse(#name)? })
+            let content = parse_etw_field_attr(f)?;
+            let name = &content.name;
+            let parse = if let Some(parse_as) = &content.parse_as {
+                let field_type = &f.ty;
+                let conversion = if let Some(convert_with) = &content.convert_with {
+                    quote! { #convert_with(__val) }
+                } else {
+                    quote! { <#field_type as crate::etw::EtwPropConvert<#parse_as>>::convert(__val) }
+                };
+                quote! {{
+                    let __val: #parse_as = parser.try_parse(#name)?;
+                    #conversion
+                }}
+            } else {
+                quote! { parser.try_parse(#name)? }
+            };
+            Ok(quote! { #field_name: #parse })
         })
         .collect::<syn::Result<Vec<_>>>()
     {
@@ -69,9 +84,9 @@ pub fn derive_etw_event(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// Parse a single field's `#[etw_prop(name = "...")]` attribute,
-/// returning the property name string.
-fn parse_etw_field_attr(field: &Field) -> syn::Result<String> {
+/// Parse a single field's `#[etw_prop(name = "...", parse_as = ..., convert_with = ...)]` attribute,
+/// returning the parsed content.
+fn parse_etw_field_attr(field: &Field) -> syn::Result<EtwFieldAttrContent> {
     let etw_attr = field
         .attrs
         .iter()
@@ -86,8 +101,7 @@ fn parse_etw_field_attr(field: &Field) -> syn::Result<String> {
     let meta = &etw_attr.meta;
     match meta {
         Meta::List(list) => {
-            let content = list.parse_args_with(EtwFieldAttrContent::parse)?;
-            Ok(content.name)
+            list.parse_args_with(EtwFieldAttrContent::parse)
         }
         _ => Err(Error::new_spanned(
             etw_attr,
@@ -98,11 +112,15 @@ fn parse_etw_field_attr(field: &Field) -> syn::Result<String> {
 
 struct EtwFieldAttrContent {
     name: String,
+    parse_as: Option<Type>,
+    convert_with: Option<Path>,
 }
 
 impl Parse for EtwFieldAttrContent {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let mut name: Option<String> = None;
+        let mut parse_as: Option<Type> = None;
+        let mut convert_with: Option<Path> = None;
 
         while !input.is_empty() {
             let key: Ident = input.parse()?;
@@ -110,11 +128,17 @@ impl Parse for EtwFieldAttrContent {
                 input.parse::<Token![=]>()?;
                 let value: LitStr = input.parse()?;
                 name = Some(value.value());
+            } else if key == "parse_as" {
+                input.parse::<Token![=]>()?;
+                parse_as = Some(input.parse()?);
+            } else if key == "convert_with" {
+                input.parse::<Token![=]>()?;
+                convert_with = Some(input.parse()?);
             } else {
                 return Err(Error::new_spanned(
                     &key,
                     format!(
-                        "unknown etw_prop attribute key `{key}`; expected `name`"
+                        "unknown etw_prop attribute key `{key}`; expected `name`, `parse_as` or `convert_with`"
                     ),
                 ));
             }
@@ -127,7 +151,12 @@ impl Parse for EtwFieldAttrContent {
         let name = name.ok_or_else(|| {
             input.error("missing required `name = \"...\"` in etw_prop attribute")
         })?;
-        Ok(EtwFieldAttrContent { name })
+
+        if convert_with.is_some() && parse_as.is_none() {
+            return Err(input.error("`convert_with` requires `parse_as` to also be specified"));
+        }
+
+        Ok(EtwFieldAttrContent { name, parse_as, convert_with })
     }
 }
 
