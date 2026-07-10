@@ -55,10 +55,10 @@ pub fn derive_etw_event(input: TokenStream) -> TokenStream {
     };
 
     let expanded = quote! {
-        impl EtwEventParse for #struct_name {
+        impl crate::etw::EtwEventParse for #struct_name {
             fn try_from_parser(
-                parser: &Parser<'_, '_>,
-            ) -> Result<Self, ParserError> {
+                parser: &::ferrisetw::parser::Parser<'_, '_>,
+            ) -> Result<Self, ::ferrisetw::parser::ParserError> {
                 Ok(Self {
                     #(#field_parses),*
                 })
@@ -354,7 +354,7 @@ impl EtwProviderInput {
                 let fields = &v.fields;
                 quote! {
                     #(#attrs)*
-                    #[derive(Debug, Clone, EtwEvent)]
+                    #[derive(Debug, Clone, crate::etw::EtwEvent)]
                     #vis struct #name {
                         #fields
                     }
@@ -383,7 +383,7 @@ impl EtwProviderInput {
                 quote! {
                     (#id, #ver) => {
                         Some(Self::#name(
-                            EtwEventParse::try_from_parser(&parser).ok()?,
+                            crate::etw::EtwEventParse::try_from_parser(&parser).ok()?,
                         ))
                     }
                 }
@@ -399,7 +399,7 @@ impl EtwProviderInput {
                 quote! {
                     (#id, _) => {
                         Some(Self::#name(
-                            EtwEventParse::try_from_parser(&parser).ok()?,
+                            crate::etw::EtwEventParse::try_from_parser(&parser).ok()?,
                         ))
                     }
                 }
@@ -435,17 +435,17 @@ impl EtwProviderInput {
             };
 
             quote! {
-                pub fn build_provider<F>(callback: F) -> Provider
+                pub fn build_provider<F>(callback: F) -> ::ferrisetw::provider::Provider
                 where
                     F: Fn(#enum_name) + Send + Sync + 'static,
                 {
-                    Provider::by_guid(PROVIDER_GUID)
-                        .add_callback(move |record: &EventRecord, locator: &SchemaLocator| {
+                    ::ferrisetw::provider::Provider::by_guid(PROVIDER_GUID)
+                        .add_callback(move |record: &::ferrisetw::EventRecord, locator: &::ferrisetw::schema_locator::SchemaLocator| {
                             if let Some(event) = #enum_name::try_parse(record, locator) {
                                 callback(event);
                             }
                         })
-                        .add_filter(EventFilter::ByEventIds(vec![#(#event_ids),*]))
+                        .add_filter(::ferrisetw::provider::EventFilter::ByEventIds(vec![#(#event_ids),*]))
                         #any_method
                         .build()
                 }
@@ -466,11 +466,11 @@ impl EtwProviderInput {
 
             impl #enum_name {
                 #enum_vis fn try_parse(
-                    record: &EventRecord,
-                    schema_locator: &SchemaLocator,
+                    record: &::ferrisetw::EventRecord,
+                    schema_locator: &::ferrisetw::schema_locator::SchemaLocator,
                 ) -> Option<Self> {
                     let schema = schema_locator.event_schema(record).ok()?;
-                    let parser = Parser::create(record, &schema);
+                    let parser = ::ferrisetw::parser::Parser::create(record, &schema);
                     match (record.event_id(), record.version()) {
                         #(#exact_match_arms)*
                         #(#wildcard_match_arms)*

@@ -1,10 +1,6 @@
 #![allow(dead_code)]
 
-use crate::etw::{EtwEvent, EtwEventParse, etw_provider};
-use ferrisetw::EventRecord;
-use ferrisetw::parser::{Parser, ParserError};
-use ferrisetw::provider::{EventFilter, Provider};
-use ferrisetw::schema_locator::SchemaLocator;
+use crate::etw::etw_provider;
 
 etw_provider! {
     #[etw_provider(name = "Microsoft-Windows-Kernel-File", guid = "EDD08927-9CC4-4E65-B970-C2560FB5C289")]
