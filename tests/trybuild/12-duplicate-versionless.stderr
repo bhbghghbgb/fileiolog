@@ -1,5 +1,5 @@
 error: duplicate (id, version) pair (10, any (no version)) in etw_provider! block
-  --> tests/trybuild/12-duplicate-versionless.rs:13:20
+  --> tests/trybuild/12-duplicate-versionless.rs:14:20
    |
-13 |         pub struct Second {
+14 |         pub struct Second {
    |                    ^^^^^^

@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 // Test 13: #[etw_prop] with parse_as and convert_with
 
 use ferrisetw::parser::Pointer;

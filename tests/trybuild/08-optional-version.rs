@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 // Test: version is optional; both versioned and versionless variants coexist
 
 use ferrisetw::EventRecord;

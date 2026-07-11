@@ -1,5 +1,5 @@
 error: struct `MissingAttr` is missing required #[etw_event(id = ...)] attribute
- --> tests/trybuild/04-zero-event-attr.rs:5:20
+ --> tests/trybuild/04-zero-event-attr.rs:6:20
   |
-5 |         pub struct MissingAttr {
+6 |         pub struct MissingAttr {
   |                    ^^^^^^^^^^^

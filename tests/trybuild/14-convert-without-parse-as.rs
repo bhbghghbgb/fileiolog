@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 use fileiolog::etw::EtwEvent;
 
 #[derive(Debug, Clone, EtwEvent)]

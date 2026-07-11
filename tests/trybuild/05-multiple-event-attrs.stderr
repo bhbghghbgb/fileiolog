@@ -1,5 +1,5 @@
 error: struct `TwoEvents` has multiple #[etw_event(...)] attributes; expected exactly one
- --> tests/trybuild/05-multiple-event-attrs.rs:6:9
+ --> tests/trybuild/05-multiple-event-attrs.rs:7:9
   |
-6 |         #[etw_event(id = 2, version = 0)]
+7 |         #[etw_event(id = 2, version = 0)]
   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

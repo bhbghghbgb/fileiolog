@@ -1,5 +1,5 @@
 error: EtwEvent requires a struct with named fields
- --> tests/trybuild/06-tuple-struct.rs:4:22
+ --> tests/trybuild/06-tuple-struct.rs:5:22
   |
-4 | pub struct TupleEvent(u64, String);
+5 | pub struct TupleEvent(u64, String);
   |                      ^^^^^^^^^^^^^

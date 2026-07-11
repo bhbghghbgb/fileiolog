@@ -1,7 +1,7 @@
 error[E0560]: struct `EventWithSkippedField` has no field named `skipped`
-  --> tests/trybuild/15-skip-prop.rs:20:50
+  --> tests/trybuild/15-skip-prop.rs:21:50
    |
-20 |     let _bad = EventWithSkippedField { kept: 42, skipped: 0 };
+21 |     let _bad = EventWithSkippedField { kept: 42, skipped: 0 };
    |                                                  ^^^^^^^ `EventWithSkippedField` does not have this field
    |
    = note: all struct fields are already assigned

@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 // Test: some structs lack mask → .any() is NOT generated (must still compile)
 
 use ferrisetw::EventRecord;

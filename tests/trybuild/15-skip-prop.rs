@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 // Test: #[etw_prop(name = "...", skip)] omits the field from the generated struct
 
 use fileiolog::etw::etw_provider;

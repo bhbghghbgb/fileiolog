@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 // Test: all structs have mask → .any(COMBINED) is generated in build_provider
 
 use ferrisetw::EventRecord;

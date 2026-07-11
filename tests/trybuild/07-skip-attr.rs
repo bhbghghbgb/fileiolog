@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 // Test: #[etw_event(skip)] excludes structs from codegen
 
 use fileiolog::etw::etw_provider;

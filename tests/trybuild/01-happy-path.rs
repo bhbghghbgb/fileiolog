@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 // Test 1: Happy path — valid struct with #[derive(EtwEvent)]
 
 use ferrisetw::EventRecord;
