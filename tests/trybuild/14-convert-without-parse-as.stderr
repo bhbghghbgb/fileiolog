@@ -1,5 +1,5 @@
-error: unexpected end of input, `convert_with` requires `parse_as` to also be specified
- --> tests/trybuild/14-convert-without-parse-as.rs:5:54
+error: `convert_with` requires `parse_as` to also be specified
+ --> tests/trybuild/14-convert-without-parse-as.rs:5:5
   |
 5 |     #[etw_prop(name = "Value", convert_with = some_fn)]
-  |                                                      ^
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
