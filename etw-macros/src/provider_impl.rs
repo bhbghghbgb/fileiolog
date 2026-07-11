@@ -8,7 +8,9 @@ use syn::{
     punctuated::Punctuated,
 };
 
-use crate::{guid_literal_from_str, has_skip_in_etw_prop, parse_attr_meta, EtwEventArgs, EtwProviderArgs};
+use crate::{
+    EtwEventArgs, EtwProviderArgs, guid_literal_from_str, has_skip_in_etw_prop, parse_attr_meta,
+};
 
 pub fn expand(input: TokenStream) -> TokenStream {
     let provider = parse_macro_input!(input as EtwProviderInput);
@@ -170,9 +172,9 @@ impl EtwProviderInput {
                     .fields
                     .iter()
                     .filter(|f| {
-                        !f.attrs.iter().any(|a| {
-                            a.path().is_ident("etw_prop") && has_skip_in_etw_prop(a)
-                        })
+                        !f.attrs
+                            .iter()
+                            .any(|a| a.path().is_ident("etw_prop") && has_skip_in_etw_prop(a))
                     })
                     .collect();
                 quote! {
@@ -238,7 +240,7 @@ impl EtwProviderInput {
         };
 
         let build_provider = if self.provider_guid.is_some() {
-            let event_ids: Vec<_> = non_skipped.iter().map(|v| v.event_id).collect();
+            let event_ids: BTreeSet<_> = non_skipped.iter().map(|v| v.event_id).collect();
 
             let all_have_mask = non_skipped.iter().all(|v| v.mask.is_some());
             let combined_mask: u64 = non_skipped

@@ -10,8 +10,8 @@
 // Then copy kernel-file.etl into the crate root and rename the
 // path below, or set the FILEIOLOG_ETL environment variable.
 
-use ferrisetw::trace::FileTrace;
 use ferrisetw::schema_locator::SchemaLocator;
+use ferrisetw::trace::FileTrace;
 
 /// Path to the .etl fixture file.
 /// Replace this with the actual path once you have captured a trace.
@@ -33,11 +33,14 @@ fn replay_kernel_file_events() {
     let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let events_clone = events.clone();
 
-    let trace = FileTrace::new(etl_path, move |_record: &ferrisetw::EventRecord, _locator: &SchemaLocator| {
-        if let Ok(mut guard) = events_clone.lock() {
-            guard.push(());
-        }
-    })
+    let trace = FileTrace::new(
+        etl_path,
+        move |_record: &ferrisetw::EventRecord, _locator: &SchemaLocator| {
+            if let Ok(mut guard) = events_clone.lock() {
+                guard.push(());
+            }
+        },
+    )
     .start_and_process()
     .expect("FileTrace::start_and_process failed");
 
