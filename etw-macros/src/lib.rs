@@ -46,6 +46,9 @@ pub fn derive_etw_event(input: TokenStream) -> TokenStream {
                 .as_ref()
                 .expect("named struct fields always have idents");
             let content = parse_etw_field_attr(f)?;
+            if content.skip {
+                return Ok(quote! { #field_name: Default::default() });
+            }
             let name = &content.name;
             let parse = if let Some(parse_as) = &content.parse_as {
                 let field_type = &f.ty;
@@ -110,10 +113,40 @@ fn parse_etw_field_attr(field: &Field) -> syn::Result<EtwFieldAttrContent> {
     }
 }
 
+/// Quick check if an `etw_prop` attribute contains `skip` (used during expansion
+/// to filter fields without requiring the full parse that mandates `name`).
+fn parse_etw_prop_has_skip(attr: &Attribute) -> syn::Result<bool> {
+    match &attr.meta {
+        Meta::List(list) => {
+            list.parse_args_with(|input: ParseStream<'_>| {
+                let mut skip = false;
+                while !input.is_empty() {
+                    let key: Ident = input.parse()?;
+                    if key == "skip" {
+                        skip = true;
+                    } else {
+                        input.parse::<Token![=]>()?;
+                        // skip over the value (any tokens until comma or end)
+                        while !input.is_empty() && !input.peek(Token![,]) {
+                            let _: proc_macro2::TokenTree = input.parse()?;
+                        }
+                    }
+                    if !input.is_empty() {
+                        input.parse::<Token![,]>()?;
+                    }
+                }
+                Ok(skip)
+            })
+        }
+        _ => Ok(false),
+    }
+}
+
 struct EtwFieldAttrContent {
     name: String,
     parse_as: Option<Type>,
     convert_with: Option<Path>,
+    skip: bool,
 }
 
 impl Parse for EtwFieldAttrContent {
@@ -121,10 +154,13 @@ impl Parse for EtwFieldAttrContent {
         let mut name: Option<String> = None;
         let mut parse_as: Option<Type> = None;
         let mut convert_with: Option<Path> = None;
+        let mut skip = false;
 
         while !input.is_empty() {
             let key: Ident = input.parse()?;
-            if key == "name" {
+            if key == "skip" {
+                skip = true;
+            } else if key == "name" {
                 input.parse::<Token![=]>()?;
                 let value: LitStr = input.parse()?;
                 name = Some(value.value());
@@ -138,7 +174,7 @@ impl Parse for EtwFieldAttrContent {
                 return Err(Error::new_spanned(
                     &key,
                     format!(
-                        "unknown etw_prop attribute key `{key}`; expected `name`, `parse_as` or `convert_with`"
+                        "unknown etw_prop attribute key `{key}`; expected `name`, `parse_as`, `convert_with`, or `skip`"
                     ),
                 ));
             }
@@ -156,7 +192,7 @@ impl Parse for EtwFieldAttrContent {
             return Err(input.error("`convert_with` requires `parse_as` to also be specified"));
         }
 
-        Ok(EtwFieldAttrContent { name, parse_as, convert_with })
+        Ok(EtwFieldAttrContent { name, parse_as, convert_with, skip })
     }
 }
 
@@ -283,10 +319,9 @@ impl Parse for EtwProviderInput {
             syn::braced!(fields_content in content);
             let fields = fields_content.parse_terminated(Field::parse_named, Token![,])?;
 
-            // Separate #[etw_event(...)], #[etw_skip], and other attributes
+            // Separate #[etw_event(...)] and other attributes
             let mut event_attr: Option<Attribute> = None;
             let mut other_attrs: Vec<Attribute> = Vec::new();
-            let mut skip = false;
 
             for attr in attrs {
                 if attr.path().is_ident("etw_event") {
@@ -299,8 +334,6 @@ impl Parse for EtwProviderInput {
                         ));
                     }
                     event_attr = Some(attr);
-                } else if attr.path().is_ident("etw_skip") {
-                    skip = true;
                 } else {
                     other_attrs.push(attr);
                 }
@@ -315,7 +348,7 @@ impl Parse for EtwProviderInput {
                 )
             })?;
 
-            let (event_id, event_version, mask) = parse_event_attr(&event_attr)?;
+            let (event_id, event_version, mask, skip) = parse_event_attr(&event_attr)?;
 
             variants.push(EtwVariant {
                 event_id,
@@ -373,19 +406,28 @@ impl EtwProviderInput {
         let enum_vis = &self.enum_vis;
         let enum_name = &self.enum_name;
 
-        // ── Generate structs (only non-skipped) ──────────────
+        // ── Generate structs (only non-skipped, filter skipped fields) ──
         let struct_defs: Vec<_> = non_skipped
             .iter()
             .map(|v| {
                 let attrs = &v.attrs;
                 let vis = &v.struct_vis;
                 let name = &v.struct_name;
-                let fields = &v.fields;
+                let filtered_fields: Vec<_> = v
+                    .fields
+                    .iter()
+                    .filter(|f| {
+                        !f.attrs.iter().any(|a| {
+                            a.path().is_ident("etw_prop")
+                                && parse_etw_prop_has_skip(a).unwrap_or(false)
+                        })
+                    })
+                    .collect();
                 quote! {
                     #(#attrs)*
                     #[derive(Debug, Clone, ::fileiolog::etw::EtwEvent)]
                     #vis struct #name {
-                        #fields
+                        #(#filtered_fields),*
                     }
                 }
             })
@@ -515,16 +557,16 @@ impl EtwProviderInput {
     }
 }
 
-fn parse_event_attr(attr: &Attribute) -> syn::Result<(u16, Option<u8>, Option<u64>)> {
+fn parse_event_attr(attr: &Attribute) -> syn::Result<(u16, Option<u8>, Option<u64>, bool)> {
     let meta = &attr.meta;
     match meta {
         Meta::List(list) => {
             let ev = list.parse_args_with(EventAttrContent::parse)?;
-            Ok((ev.id, ev.version, ev.mask))
+            Ok((ev.id, ev.version, ev.mask, ev.skip))
         }
         _ => Err(Error::new_spanned(
             attr,
-            "expected #[etw_event(id = <int>, version = <int>, mask = <int>)]",
+            "expected #[etw_event(id = <int>, version = <int>, mask = <int>, skip)]",
         )),
     }
 }
@@ -533,6 +575,7 @@ struct EventAttrContent {
     id: u16,
     version: Option<u8>,
     mask: Option<u64>,
+    skip: bool,
 }
 
 impl Parse for EventAttrContent {
@@ -540,33 +583,39 @@ impl Parse for EventAttrContent {
         let mut id: Option<u16> = None;
         let mut version: Option<u8> = None;
         let mut mask: Option<u64> = None;
+        let mut skip = false;
 
         while !input.is_empty() {
             let key: Ident = input.parse()?;
-            input.parse::<Token![=]>()?;
 
-            if key == "id" {
-                let lit: LitInt = input.parse()?;
-                id = Some(lit.base10_parse::<u16>().map_err(|_| {
-                    Error::new_spanned(&lit, "event id must be a u16 integer")
-                })?);
-            } else if key == "version" {
-                let lit: LitInt = input.parse()?;
-                version = Some(lit.base10_parse::<u8>().map_err(|_| {
-                    Error::new_spanned(&lit, "event version must be a u8 integer")
-                })?);
-            } else if key == "mask" {
-                let lit: LitInt = input.parse()?;
-                mask = Some(lit.base10_parse::<u64>().map_err(|_| {
-                    Error::new_spanned(&lit, "event mask must be a u64 integer")
-                })?);
+            if key == "skip" {
+                skip = true;
             } else {
-                return Err(Error::new_spanned(
-                    &key,
-                    format!(
-                        "unknown etw_event attribute key `{key}`; expected `id`, `version`, or `mask`"
-                    ),
-                ));
+                input.parse::<Token![=]>()?;
+
+                if key == "id" {
+                    let lit: LitInt = input.parse()?;
+                    id = Some(lit.base10_parse::<u16>().map_err(|_| {
+                        Error::new_spanned(&lit, "event id must be a u16 integer")
+                    })?);
+                } else if key == "version" {
+                    let lit: LitInt = input.parse()?;
+                    version = Some(lit.base10_parse::<u8>().map_err(|_| {
+                        Error::new_spanned(&lit, "event version must be a u8 integer")
+                    })?);
+                } else if key == "mask" {
+                    let lit: LitInt = input.parse()?;
+                    mask = Some(lit.base10_parse::<u64>().map_err(|_| {
+                        Error::new_spanned(&lit, "event mask must be a u64 integer")
+                    })?);
+                } else {
+                    return Err(Error::new_spanned(
+                        &key,
+                        format!(
+                            "unknown etw_event attribute key `{key}`; expected `id`, `version`, `mask`, or `skip`"
+                        ),
+                    ));
+                }
             }
 
             if !input.is_empty() {
@@ -576,6 +625,6 @@ impl Parse for EventAttrContent {
 
         let id = id.ok_or_else(|| input.error("missing required `id` in etw_event attribute"))?;
 
-        Ok(EventAttrContent { id, version, mask })
+        Ok(EventAttrContent { id, version, mask, skip })
     }
 }

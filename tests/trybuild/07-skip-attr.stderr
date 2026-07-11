@@ -1,0 +1,5 @@
+error[E0422]: cannot find struct, variant or union type `ZzRemovedEvent` in this scope
+  --> tests/trybuild/07-skip-attr.rs:27:16
+   |
+27 |     let _bad = ZzRemovedEvent { y: 0 };
+   |                ^^^^^^^^^^^^^^ not found in this scope
