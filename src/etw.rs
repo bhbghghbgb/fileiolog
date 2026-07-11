@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 /// Trait for parsing an ETW event struct from a ferrisetw parser.
 ///
 /// Implemented by the `#[derive(EtwEvent)]` macro.
@@ -34,4 +37,4 @@ impl EtwPropConvert<ferrisetw::parser::Pointer> for usize {
 }
 
 // Re-export the proc-macros so users can `use fileiolog::etw::...`.
-pub use etw_macros::{etw_provider, EtwEvent};
+pub use etw_macros::{EtwEvent, etw_provider, guid};

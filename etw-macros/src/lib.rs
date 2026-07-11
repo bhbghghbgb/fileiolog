@@ -170,6 +170,87 @@ pub fn derive_etw_event(input: TokenStream) -> TokenStream {
 }
 
 // ───────────────────────────────────────────────────────────────
+//  Helper: parse a GUID string into a compile-time literal
+// ───────────────────────────────────────────────────────────────
+
+fn guid_literal_from_str(s: &str) -> syn::Result<proc_macro2::TokenStream> {
+    if s.len() != 36 {
+        return Err(Error::new(
+            proc_macro2::Span::call_site(),
+            "GUID string must be exactly 36 characters (format: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX)",
+        ));
+    }
+
+    let bytes = s.as_bytes();
+    if bytes[8] != b'-' || bytes[13] != b'-' || bytes[18] != b'-' || bytes[23] != b'-' {
+        return Err(Error::new(
+            proc_macro2::Span::call_site(),
+            "GUID format must be XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+        ));
+    }
+
+    let hex_val = |start: usize, len: usize| -> syn::Result<u32> {
+        let mut val = 0u32;
+        for i in 0..len {
+            let b = bytes[start + i];
+            let digit = match b {
+                b'0'..=b'9' => (b - b'0') as u32,
+                b'A'..=b'F' => (b - b'A' + 10) as u32,
+                b'a'..=b'f' => (b - b'a' + 10) as u32,
+                _ => {
+                    return Err(Error::new(
+                        proc_macro2::Span::call_site(),
+                        format!("invalid hex character '{}' in GUID", b as char),
+                    ))
+                }
+            };
+            val = (val << 4) | digit;
+        }
+        Ok(val)
+    };
+
+    let data1 = hex_val(0, 8)?;
+    let data2 = hex_val(9, 4)? as u16;
+    let data3 = hex_val(14, 4)? as u16;
+    let data4 = [
+        hex_val(19, 2)? as u8,
+        hex_val(21, 2)? as u8,
+        hex_val(24, 2)? as u8,
+        hex_val(26, 2)? as u8,
+        hex_val(28, 2)? as u8,
+        hex_val(30, 2)? as u8,
+        hex_val(32, 2)? as u8,
+        hex_val(34, 2)? as u8,
+    ];
+
+    Ok(quote! {
+        ::windows::core::GUID::from_values(
+            #data1,
+            #data2,
+            #data3,
+            [#(#data4),*]
+        )
+    })
+}
+
+/// Parses a GUID string literal at compile time into a `windows::core::GUID` value.
+///
+/// # Example
+///
+/// ```ignore
+/// use etw_macros::guid;
+/// const MY_GUID: ::windows::core::GUID = guid!("EDD08927-9CC4-4E65-B970-C2560FB5C289");
+/// ```
+#[proc_macro]
+pub fn guid(input: TokenStream) -> TokenStream {
+    let lit = parse_macro_input!(input as syn::LitStr);
+    match guid_literal_from_str(&lit.value()) {
+        Ok(ts) => TokenStream::from(ts),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+// ───────────────────────────────────────────────────────────────
 //  Function-like macro: etw_provider! { ... }
 // ───────────────────────────────────────────────────────────────
 
@@ -400,11 +481,12 @@ impl EtwProviderInput {
             .collect();
 
         // ── Provider constants and build_provider ───────────
-        let constants = if let Some(guid) = &self.provider_guid {
+        let constants = if let Some(guid_str) = &self.provider_guid {
             let name = self.provider_name.as_deref().unwrap_or("");
+            let guid_tokens = guid_literal_from_str(guid_str)?;
             quote! {
                 pub const PROVIDER_NAME: &str = #name;
-                pub const PROVIDER_GUID: &str = #guid;
+                pub const PROVIDER_GUID: ::windows::core::GUID = #guid_tokens;
             }
         } else {
             quote! {}
