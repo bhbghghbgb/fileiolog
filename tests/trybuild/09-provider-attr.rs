@@ -1,10 +1,11 @@
+#![allow(unused_imports)]
 // Test: #[etw_provider] generates constants and build_provider
 
 use ferrisetw::EventRecord;
 use ferrisetw::parser::{Parser, ParserError};
 use ferrisetw::provider::{EventFilter, Provider};
 use ferrisetw::schema_locator::SchemaLocator;
-use fileiolog::etw::{EtwEvent, etw_provider, EtwEventParse};
+use fileiolog::etw::{EtwEvent, etw_provider, guid, EtwEventParse};
 
 etw_provider! {
     #[etw_provider(name = "TestProvider", guid = "DEADBEEF-DEAD-BEEF-DEAD-BEEFDEADBEEF")]
@@ -26,7 +27,7 @@ etw_provider! {
 fn main() {
     // Verify constants are generated
     assert_eq!(PROVIDER_NAME, "TestProvider");
-    assert_eq!(PROVIDER_GUID, "DEADBEEF-DEAD-BEEF-DEAD-BEEFDEADBEEF");
+    assert_eq!(PROVIDER_GUID, guid!("DEADBEEF-DEAD-BEEF-DEAD-BEEFDEADBEEF"));
 
     // Verify build_provider compiles and returns a Provider
     let provider = build_provider(|_: TestEvents| {
