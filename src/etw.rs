@@ -36,5 +36,17 @@ impl EtwPropConvert<ferrisetw::parser::Pointer> for usize {
     }
 }
 
+impl EtwPropConvert<ferrisetw::native::time::FileTime> for time::OffsetDateTime {
+    fn convert(value: ferrisetw::native::time::FileTime) -> Self {
+        value.as_date_time()
+    }
+}
+
+impl EtwPropConvert<ferrisetw::native::time::SystemTime> for time::OffsetDateTime {
+    fn convert(value: ferrisetw::native::time::SystemTime) -> Self {
+        value.as_date_time()
+    }
+}
+
 // Re-export the proc-macros so users can `use fileiolog::etw::...`.
 pub use etw_macros::{EtwEvent, etw_provider, guid};
