@@ -36,11 +36,5 @@ impl EtwPropConvert<ferrisetw::parser::Pointer> for usize {
     }
 }
 
-impl EtwPropConvert<ferrisetw::parser::FileTime> for i64 {
-    fn convert(value: ferrisetw::parser::FileTime) -> Self {
-        value.as_unix_timestamp()
-    }
-}
-
 // Re-export the proc-macros so users can `use fileiolog::etw::...`.
 pub use etw_macros::{EtwEvent, etw_provider, guid};
