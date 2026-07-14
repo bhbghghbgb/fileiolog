@@ -10,7 +10,14 @@ use crate::{manager::EtwTraceManager, provider_event::ProviderEvent};
 
 fn main() {
     // 1. Initialize env_logger
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "info"
+        },
+    ))
+    .init();
     log::info!("Starting up ETW Monitor Application...");
 
     // 2. Define the unified callback (For now logging; later pushing to ringbuf SPSC)

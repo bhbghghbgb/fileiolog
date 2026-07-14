@@ -18,19 +18,13 @@ impl EtwTraceManager {
         let session_name = session_name.to_string();
 
         // Pre-emptively stop any orphan sessions from previous crashes
-        log::info!(
-            "Checking for any lingering ETW sessions named '{}'...",
-            session_name
-        );
-        if let Err(e) = stop_trace_by_name(&session_name) {
-            log::debug!("No lingering session detected or clean bypass: {:?}", e);
-        } else {
-            log::warn!(
-                "Found and terminated a stale trace session: '{}'.",
-                session_name
-            );
+        log::info!("Checking for any lingering ETW sessions named '{session_name}'...");
+        match stop_trace_by_name(&session_name) {
+            Ok(()) => log::debug!("No lingering session detected or clean bypass '{session_name}'"),
+            Err(e) => log::warn!(
+                "Found and terminated a stale trace session: '{session_name}'. Error: {e:?}"
+            ),
         }
-
         Self { session_name }
     }
 
@@ -83,18 +77,30 @@ impl EtwTraceManager {
     where
         F: Fn(ProviderEvent) + Send + Sync + Clone + 'static,
     {
-        let file_cb = shared_callback;
+        let file_cb = shared_callback.clone();
         let file_provider = providers::kernel_file::build_provider(move |evt| {
             file_cb(ProviderEvent::KernelFile(evt));
         });
 
-        let guid = file_provider.guid();
-        let builder = UserTrace::new().enable(file_provider);
+        let process_cb = shared_callback.clone();
+        let process_provider = providers::kernel_process::build_provider(move |evt| {
+            process_cb(ProviderEvent::KernelProcess(evt));
+        });
+
+        let builder = UserTrace::new()
+            .enable(file_provider)
+            .enable(process_provider);
         // ── Add future providers here ──
         // let builder = builder.enable(another_provider);
         // guids.push(another_provider.guid());
 
-        (builder, vec![guid])
+        (
+            builder,
+            vec![
+                providers::kernel_file::PROVIDER_GUID,
+                providers::kernel_process::PROVIDER_GUID,
+            ],
+        )
     }
 }
 

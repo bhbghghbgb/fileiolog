@@ -95,6 +95,7 @@ fn trigger_capture_state(
             None, // enable parameters
         )
     };
+    log::debug!("Triggered capture state for {provider_guid:?}");
 
     let win32_result = result.ok();
     if let Err(e) = win32_result {
