@@ -2,14 +2,14 @@ use proc_macro::TokenStream;
 use quote::quote;
 use std::collections::BTreeSet;
 use syn::{
-    Attribute, Error, Expr, Field, Ident, Token, Visibility,
+    Attribute, Error, Field, Ident, Token, Visibility,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
 };
 
 use crate::{
-    EtwEventArgs, EtwProviderArgs, has_skip_in_etw_prop, parse_attr_meta,
+    EtwEventArgs, EtwProviderArgs, guid_literal_from_str, has_skip_in_etw_prop, parse_attr_meta,
 };
 
 pub fn expand(input: TokenStream) -> TokenStream {
@@ -23,9 +23,8 @@ pub fn expand(input: TokenStream) -> TokenStream {
 // ── Parsed input ──────────────────────────────────────────────
 
 struct EtwProviderInput {
-    #[allow(dead_code)]
-    provider_name: Option<Expr>,
-    provider_guid: Option<Expr>,
+    provider_name: Option<String>,
+    provider_guid: Option<String>,
     enum_vis: Visibility,
     enum_name: Ident,
     variants: Vec<EtwVariant>,
@@ -34,7 +33,7 @@ struct EtwProviderInput {
 struct EtwVariant {
     event_id: u16,
     event_version: Option<u8>,
-    mask: Option<Expr>,
+    mask: Option<u64>,
     skip: bool,
     attrs: Vec<Attribute>,
     struct_vis: Visibility,
@@ -46,8 +45,8 @@ impl Parse for EtwProviderInput {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let outer_attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
 
-        let mut provider_name: Option<Expr> = None;
-        let mut provider_guid: Option<Expr> = None;
+        let mut provider_name: Option<String> = None;
+        let mut provider_guid: Option<String> = None;
 
         for attr in &outer_attrs {
             if attr.path().is_ident("etw_provider") {
@@ -229,17 +228,28 @@ impl EtwProviderInput {
             })
             .collect();
 
-        let build_provider = if let Some(guid_expr) = &self.provider_guid {
+        let constants = if let Some(guid_str) = &self.provider_guid {
+            let name = self.provider_name.as_deref().unwrap_or("");
+            let guid_tokens = guid_literal_from_str(guid_str)?;
+            quote! {
+                pub const PROVIDER_NAME: &str = #name;
+                pub const PROVIDER_GUID: ::windows::core::GUID = #guid_tokens;
+            }
+        } else {
+            quote! {}
+        };
+
+        let build_provider = if self.provider_guid.is_some() {
             let event_ids: BTreeSet<_> = non_skipped.iter().map(|v| v.event_id).collect();
 
-            let mask_exprs: Vec<&Expr> = non_skipped.iter().filter_map(|v| v.mask.as_ref()).collect();
-            let have_all_masks = mask_exprs.len() == non_skipped.len();
+            let all_have_mask = non_skipped.iter().all(|v| v.mask.is_some());
+            let combined_mask: u64 = non_skipped
+                .iter()
+                .filter_map(|v| v.mask)
+                .fold(0, |acc, m| acc | m);
 
-            let any_method = if have_all_masks && !mask_exprs.is_empty() {
-                let mut iter = mask_exprs.iter();
-                let first = *iter.next().unwrap();
-                let or_chain = iter.fold(quote! { #first }, |acc, expr| quote! { #acc | #expr });
-                quote! { .any(#or_chain) }
+            let any_method = if all_have_mask {
+                quote! { .any(#combined_mask) }
             } else {
                 quote! {}
             };
@@ -249,7 +259,7 @@ impl EtwProviderInput {
                 where
                     F: Fn(#enum_name) + Send + Sync + 'static,
                 {
-                    ::ferrisetw::provider::Provider::by_guid(#guid_expr)
+                    ::ferrisetw::provider::Provider::by_guid(PROVIDER_GUID)
                         .add_callback(move |record: &::ferrisetw::EventRecord, locator: &::ferrisetw::schema_locator::SchemaLocator| {
                             if let Some(event) = #enum_name::try_parse(record, locator) {
                                 callback(event);
@@ -265,6 +275,8 @@ impl EtwProviderInput {
         };
 
         let expanded = quote! {
+            #constants
+
             #(#struct_defs)*
 
             #[derive(Debug, Clone)]

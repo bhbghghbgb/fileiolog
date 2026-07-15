@@ -1,27 +1,12 @@
 #![allow(dead_code)]
 
 use crate::etw::etw_provider;
-use etw_macros::guid;
-
-pub const PROVIDER_NAME: &str = "Microsoft-Windows-Kernel-File";
-pub const PROVIDER_GUID: ::windows::core::GUID =
-    guid!("EDD08927-9CC4-4E65-B970-C2560FB5C289");
-
-pub const FILE_NAME_MASK: u64 = 0x10;
-pub const FILE_CREATE_MASK: u64 = 0xa0;
-pub const FILE_GENERIC_MASK: u64 = 0x20;
-pub const FILE_READ_MASK: u64 = 0x120;
-pub const FILE_WRITE_MASK: u64 = 0x220;
-pub const FILE_OP_END_MASK: u64 = 0x60;
-pub const FILE_DELETE_PATH_MASK: u64 = 0x400;
-pub const FILE_RENAME_PATH_MASK: u64 = 0x800;
-pub const FILE_CREATE_NEW_MASK: u64 = 0x1000;
 
 etw_provider! {
-    #[etw_provider(name = PROVIDER_NAME, guid = PROVIDER_GUID)]
+    #[etw_provider(name = "Microsoft-Windows-Kernel-File", guid = "EDD08927-9CC4-4E65-B970-C2560FB5C289")]
     pub enum KernelFileEvent {
         // ── Event ID 10 ──────────────────────────────────────
-        #[etw_event(id = 10, version = 0, mask = FILE_NAME_MASK)]
+        #[etw_event(id = 10, version = 0, mask = 0x10)]
         pub struct NameCreateV0 {
             #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
             pub file_key: usize,
@@ -30,7 +15,7 @@ etw_provider! {
         }
 
         // ── Event ID 11 ──────────────────────────────────────
-        #[etw_event(id = 11, version = 0, mask = FILE_NAME_MASK)]
+        #[etw_event(id = 11, version = 0, mask = 0x10)]
         pub struct NameDeleteV0 {
             #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
             pub file_key: usize,
@@ -39,7 +24,7 @@ etw_provider! {
         }
 
         // ── Event ID 12 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 12, version = 0, mask = FILE_CREATE_MASK)]
+        #[etw_event(id = 12, version = 0, mask = 0xa0)]
         pub struct CreateV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -57,7 +42,7 @@ etw_provider! {
             pub file_name: String,
         }
 
-        #[etw_event(id = 12, version = 1, mask = FILE_CREATE_MASK)]
+        #[etw_event(id = 12, version = 1, mask = 0xa0)]
         pub struct CreateV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -76,7 +61,7 @@ etw_provider! {
         }
 
         // ── Event ID 13 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 13, version = 0, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 13, version = 0, mask = 0x20)]
         pub struct CleanupV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -88,7 +73,7 @@ etw_provider! {
             pub file_key: usize,
         }
 
-        #[etw_event(id = 13, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 13, version = 1, mask = 0x20)]
         pub struct CleanupV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -101,7 +86,7 @@ etw_provider! {
         }
 
         // ── Event ID 14 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 14, version = 0, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 14, version = 0, mask = 0x20)]
         pub struct CloseV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -113,7 +98,7 @@ etw_provider! {
             pub file_key: usize,
         }
 
-        #[etw_event(id = 14, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 14, version = 1, mask = 0x20)]
         pub struct CloseV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -126,7 +111,7 @@ etw_provider! {
         }
 
         // ── Event ID 15 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 15, version = 0, mask = FILE_READ_MASK)]
+        #[etw_event(id = 15, version = 0, mask = 0x120)]
         pub struct ReadV0 {
             #[etw_prop(name = "ByteOffset")]
             pub byte_offset: u64,
@@ -144,7 +129,7 @@ etw_provider! {
             pub io_flags: u32,
         }
 
-        #[etw_event(id = 15, version = 1, mask = FILE_READ_MASK)]
+        #[etw_event(id = 15, version = 1, mask = 0x120)]
         pub struct ReadV1 {
             #[etw_prop(name = "ByteOffset")]
             pub byte_offset: u64,
@@ -165,7 +150,7 @@ etw_provider! {
         }
 
         // ── Event ID 16 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 16, version = 0, mask = FILE_WRITE_MASK)]
+        #[etw_event(id = 16, version = 0, mask = 0x220)]
         pub struct WriteV0 {
             #[etw_prop(name = "ByteOffset")]
             pub byte_offset: u64,
@@ -183,7 +168,7 @@ etw_provider! {
             pub io_flags: u32,
         }
 
-        #[etw_event(id = 16, version = 1, mask = FILE_WRITE_MASK)]
+        #[etw_event(id = 16, version = 1, mask = 0x220)]
         pub struct WriteV1 {
             #[etw_prop(name = "ByteOffset")]
             pub byte_offset: u64,
@@ -204,7 +189,7 @@ etw_provider! {
         }
 
         // ── Event ID 17 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 17, version = 0, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 17, version = 0, mask = 0x20)]
         pub struct SetInformationV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -220,7 +205,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 17, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 17, version = 1, mask = 0x20)]
         pub struct SetInformationV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -237,7 +222,7 @@ etw_provider! {
         }
 
         // ── Event ID 18 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 18, version = 0, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 18, version = 0, mask = 0x20)]
         pub struct SetDeleteV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -253,7 +238,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 18, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 18, version = 1, mask = 0x20)]
         pub struct SetDeleteV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -270,7 +255,7 @@ etw_provider! {
         }
 
         // ── Event ID 19 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 19, version = 0, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 19, version = 0, mask = 0x20)]
         pub struct RenameV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -286,7 +271,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 19, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 19, version = 1, mask = 0x20)]
         pub struct RenameV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -303,7 +288,7 @@ etw_provider! {
         }
 
         // ── Event ID 20 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 20, version = 0, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 20, version = 0, mask = 0x20)]
         pub struct DirEnumV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -323,7 +308,7 @@ etw_provider! {
             pub file_name: String,
         }
 
-        #[etw_event(id = 20, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 20, version = 1, mask = 0x20)]
         pub struct DirEnumV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -344,7 +329,7 @@ etw_provider! {
         }
 
         // ── Event ID 21 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 21, version = 0, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 21, version = 0, mask = 0x20)]
         pub struct FlushV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -356,7 +341,7 @@ etw_provider! {
             pub file_key: usize,
         }
 
-        #[etw_event(id = 21, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 21, version = 1, mask = 0x20)]
         pub struct FlushV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -369,7 +354,7 @@ etw_provider! {
         }
 
         // ── Event ID 22 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 22, version = 0, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 22, version = 0, mask = 0x20)]
         pub struct QueryInformationV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -385,7 +370,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 22, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 22, version = 1, mask = 0x20)]
         pub struct QueryInformationV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -402,7 +387,7 @@ etw_provider! {
         }
 
         // ── Event ID 23 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 23, version = 0, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 23, version = 0, mask = 0x20)]
         pub struct FsctlV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -418,7 +403,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 23, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 23, version = 1, mask = 0x20)]
         pub struct FsctlV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -435,7 +420,7 @@ etw_provider! {
         }
 
         // ── Event ID 24 (v0) ─────────────────────────────────
-        #[etw_event(id = 24, version = 0, mask = FILE_OP_END_MASK)]
+        #[etw_event(id = 24, version = 0, mask = 0x60)]
         pub struct OperationEndV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -446,7 +431,7 @@ etw_provider! {
         }
 
         // ── Event ID 25 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 25, version = 0, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 25, version = 0, mask = 0x20)]
         pub struct DirNotifyV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -466,7 +451,7 @@ etw_provider! {
             pub file_name: String,
         }
 
-        #[etw_event(id = 25, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 25, version = 1, mask = 0x20)]
         pub struct DirNotifyV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -487,7 +472,7 @@ etw_provider! {
         }
 
         // ── Event ID 26 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 26, version = 0, mask = FILE_DELETE_PATH_MASK)]
+        #[etw_event(id = 26, version = 0, mask = 0x400)]
         pub struct DeletePathV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -505,7 +490,7 @@ etw_provider! {
             pub file_path: String,
         }
 
-        #[etw_event(id = 26, version = 1, mask = FILE_DELETE_PATH_MASK)]
+        #[etw_event(id = 26, version = 1, mask = 0x400)]
         pub struct DeletePathV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -524,7 +509,7 @@ etw_provider! {
         }
 
         // ── Event ID 27 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 27, version = 0, mask = FILE_RENAME_PATH_MASK)]
+        #[etw_event(id = 27, version = 0, mask = 0x800)]
         pub struct RenamePathV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -542,7 +527,7 @@ etw_provider! {
             pub file_path: String,
         }
 
-        #[etw_event(id = 27, version = 1, mask = FILE_RENAME_PATH_MASK)]
+        #[etw_event(id = 27, version = 1, mask = 0x800)]
         pub struct RenamePathV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -561,7 +546,7 @@ etw_provider! {
         }
 
         // ── Event ID 28 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 28, version = 0, mask = FILE_RENAME_PATH_MASK)]
+        #[etw_event(id = 28, version = 0, mask = 0x800)]
         pub struct SetLinkPathV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -579,7 +564,7 @@ etw_provider! {
             pub file_path: String,
         }
 
-        #[etw_event(id = 28, version = 1, mask = FILE_RENAME_PATH_MASK)]
+        #[etw_event(id = 28, version = 1, mask = 0x800)]
         pub struct SetLinkPathV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -598,7 +583,7 @@ etw_provider! {
         }
 
         // ── Event ID 29 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 29, version = 0, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 29, version = 0, mask = 0x20)]
         pub struct SetLinkV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -614,7 +599,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 29, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 29, version = 1, mask = 0x20)]
         pub struct SetLinkV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -631,7 +616,7 @@ etw_provider! {
         }
 
         // ── Event ID 30 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 30, version = 0, mask = FILE_CREATE_NEW_MASK)]
+        #[etw_event(id = 30, version = 0, mask = 0x1000)]
         pub struct CreateNewFileV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -649,7 +634,7 @@ etw_provider! {
             pub file_name: String,
         }
 
-        #[etw_event(id = 30, version = 1, mask = FILE_CREATE_NEW_MASK)]
+        #[etw_event(id = 30, version = 1, mask = 0x1000)]
         pub struct CreateNewFileV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -668,7 +653,7 @@ etw_provider! {
         }
 
         // ── Event ID 31 (v1) ─────────────────────────────────
-        #[etw_event(id = 31, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 31, version = 1, mask = 0x20)]
         pub struct SetSecurityV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -685,7 +670,7 @@ etw_provider! {
         }
 
         // ── Event ID 32 (v1) ─────────────────────────────────
-        #[etw_event(id = 32, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 32, version = 1, mask = 0x20)]
         pub struct QuerySecurityV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -702,7 +687,7 @@ etw_provider! {
         }
 
         // ── Event ID 33 (v1) ─────────────────────────────────
-        #[etw_event(id = 33, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 33, version = 1, mask = 0x20)]
         pub struct SetEAV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -719,7 +704,7 @@ etw_provider! {
         }
 
         // ── Event ID 34 (v1) ─────────────────────────────────
-        #[etw_event(id = 34, version = 1, mask = FILE_GENERIC_MASK)]
+        #[etw_event(id = 34, version = 1, mask = 0x20)]
         pub struct QueryEAV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
