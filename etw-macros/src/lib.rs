@@ -49,15 +49,15 @@ pub(crate) struct EtwPropArgs {
 pub(crate) struct EtwEventArgs {
     pub(crate) id: u16,
     pub(crate) version: Option<u8>,
-    pub(crate) mask: Option<u64>,
+    pub(crate) mask: Option<syn::Expr>,
     #[darling(default)]
     pub(crate) skip: bool,
 }
 
 #[derive(Debug, Default, FromMeta)]
 pub(crate) struct EtwProviderArgs {
-    pub(crate) name: Option<String>,
-    pub(crate) guid: Option<String>,
+    pub(crate) name: Option<syn::Expr>,
+    pub(crate) guid: Option<syn::Expr>,
 }
 
 /// Minimal struct for checking `skip` without requiring `name`.
