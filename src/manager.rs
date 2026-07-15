@@ -78,12 +78,12 @@ impl EtwTraceManager {
         F: Fn(ProviderEvent) + Send + Sync + Clone + 'static,
     {
         let file_cb = shared_callback.clone();
-        let file_provider = providers::kernel_file::build_provider(move |evt| {
+        let file_provider = providers::user_trace_kernel_file::build_provider(move |evt| {
             file_cb(ProviderEvent::KernelFile(evt));
         });
 
         let process_cb = shared_callback.clone();
-        let process_provider = providers::kernel_process::build_provider(move |evt| {
+        let process_provider = providers::user_trace_kernel_process::build_provider(move |evt| {
             process_cb(ProviderEvent::KernelProcess(evt));
         });
 
@@ -97,8 +97,8 @@ impl EtwTraceManager {
         (
             builder,
             vec![
-                providers::kernel_file::PROVIDER_GUID,
-                providers::kernel_process::PROVIDER_GUID,
+                providers::user_trace_kernel_file::PROVIDER_GUID,
+                providers::user_trace_kernel_process::PROVIDER_GUID,
             ],
         )
     }

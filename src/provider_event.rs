@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-use crate::providers::kernel_file::KernelFileEvent;
-use crate::providers::kernel_process::KernelProcessEvent;
+use crate::providers::user_trace_kernel_file::UserTraceKernelFileEvent;
+use crate::providers::user_trace_kernel_process::UserTraceKernelProcessEvent;
 
 #[derive(Debug, Clone)]
 pub enum ProviderEvent {
-    KernelFile(KernelFileEvent),
-    KernelProcess(KernelProcessEvent),
+    KernelFile(UserTraceKernelFileEvent),
+    KernelProcess(UserTraceKernelProcessEvent),
 }
