@@ -49,7 +49,7 @@ pub(crate) struct EtwPropArgs {
 pub(crate) struct EtwEventArgs {
     pub(crate) id: u16,
     pub(crate) version: Option<u8>,
-    pub(crate) mask: Option<u64>,
+    pub(crate) mask: Option<syn::Expr>,
     #[darling(default)]
     pub(crate) skip: bool,
 }

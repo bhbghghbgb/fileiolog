@@ -33,7 +33,7 @@ struct EtwProviderInput {
 struct EtwVariant {
     event_id: u16,
     event_version: Option<u8>,
-    mask: Option<u64>,
+    mask: Option<syn::Expr>,
     skip: bool,
     attrs: Vec<Attribute>,
     struct_vis: Visibility,
@@ -239,17 +239,18 @@ impl EtwProviderInput {
             quote! {}
         };
 
-        let build_provider = if self.provider_guid.is_some() {
+            let build_provider = if self.provider_guid.is_some() {
             let event_ids: BTreeSet<_> = non_skipped.iter().map(|v| v.event_id).collect();
 
-            let all_have_mask = non_skipped.iter().all(|v| v.mask.is_some());
-            let combined_mask: u64 = non_skipped
-                .iter()
-                .filter_map(|v| v.mask)
-                .fold(0, |acc, m| acc | m);
+            let mask_exprs: Vec<&syn::Expr> = non_skipped.iter().filter_map(|v| v.mask.as_ref()).collect();
+            let all_have_mask = mask_exprs.len() == non_skipped.len();
 
-            let any_method = if all_have_mask {
-                quote! { .any(#combined_mask) }
+            let any_method = if all_have_mask && !mask_exprs.is_empty() {
+                let combined = mask_exprs.iter().fold(
+                    quote! { 0u64 },
+                    |acc, expr| quote! { #acc | #expr },
+                );
+                quote! { .any(#combined) }
             } else {
                 quote! {}
             };
