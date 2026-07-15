@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use std::collections::BTreeSet;
 use syn::{
-    Attribute, Error, Field, Ident, Token, Visibility,
+    Attribute, Error, Expr, Field, Ident, Token, Visibility,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
@@ -33,7 +33,7 @@ struct EtwProviderInput {
 struct EtwVariant {
     event_id: u16,
     event_version: Option<u8>,
-    mask: Option<u64>,
+    mask: Option<Expr>,
     skip: bool,
     attrs: Vec<Attribute>,
     struct_vis: Visibility,
@@ -108,7 +108,7 @@ impl Parse for EtwProviderInput {
                 )
             })?;
 
-            let args: EtwEventArgs = parse_attr_meta(&event_attr)?;
+            let args = EtwEventArgs::from_attr(&event_attr)?;
 
             variants.push(EtwVariant {
                 event_id: args.id,
@@ -242,14 +242,18 @@ impl EtwProviderInput {
         let build_provider = if self.provider_guid.is_some() {
             let event_ids: BTreeSet<_> = non_skipped.iter().map(|v| v.event_id).collect();
 
-            let all_have_mask = non_skipped.iter().all(|v| v.mask.is_some());
-            let combined_mask: u64 = non_skipped
-                .iter()
-                .filter_map(|v| v.mask)
-                .fold(0, |acc, m| acc | m);
+            let masks: Vec<&Expr> = non_skipped.iter().filter_map(|v| v.mask.as_ref()).collect();
+            let all_have_mask = non_skipped.len() == masks.len() && !masks.is_empty();
 
             let any_method = if all_have_mask {
-                quote! { .any(#combined_mask) }
+                let combined = masks.into_iter().fold(quote! {}, |acc, expr| {
+                    if acc.is_empty() {
+                        quote! { #expr }
+                    } else {
+                        quote! { (#acc | #expr) }
+                    }
+                });
+                quote! { .any(#combined) }
             } else {
                 quote! {}
             };
