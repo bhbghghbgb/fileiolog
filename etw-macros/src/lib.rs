@@ -1,10 +1,7 @@
 use darling::FromMeta;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{
-    Attribute, Error, Expr, Ident, LitBool, LitInt, Meta, Token,
-    parse::{Parse, ParseStream},
-};
+use syn::{Attribute, Error, Meta};
 
 mod derive_impl;
 mod guid_impl;
@@ -48,76 +45,13 @@ pub(crate) struct EtwPropArgs {
     pub(crate) skip: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, FromMeta)]
 pub(crate) struct EtwEventArgs {
     pub(crate) id: u16,
     pub(crate) version: Option<u8>,
-    pub(crate) mask: Option<Expr>,
+    pub(crate) mask: Option<u64>,
+    #[darling(default)]
     pub(crate) skip: bool,
-}
-
-impl EtwEventArgs {
-    /// Parse `#[etw_event(...)]` from an attribute, supporting `mask = <expr>`.
-    pub(crate) fn from_attr(attr: &Attribute) -> syn::Result<Self> {
-        match &attr.meta {
-            Meta::List(list) => list.parse_args::<EtwEventArgsParser>().map(|p| p.args),
-            _ => Err(Error::new_spanned(attr, "expected #[etw_event(...)]")),
-        }
-    }
-}
-
-struct EtwEventArgsParser {
-    args: EtwEventArgs,
-}
-
-impl Parse for EtwEventArgsParser {
-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let mut id = None;
-        let mut version = None;
-        let mut mask = None;
-        let mut skip = false;
-
-        while !input.is_empty() {
-            let key: Ident = input.parse()?;
-
-            if key == "skip" {
-                if input.peek(Token![=]) {
-                    input.parse::<Token![=]>()?;
-                    let lit: LitBool = input.parse()?;
-                    skip = lit.value;
-                } else {
-                    skip = true;
-                }
-            } else {
-                input.parse::<Token![=]>()?;
-
-                if key == "id" {
-                    let lit: LitInt = input.parse()?;
-                    id = Some(lit.base10_parse::<u16>()?);
-                } else if key == "version" {
-                    let lit: LitInt = input.parse()?;
-                    version = Some(lit.base10_parse::<u8>()?);
-                } else if key == "mask" {
-                    mask = Some(input.parse::<Expr>()?);
-                } else {
-                    return Err(Error::new_spanned(&key, format!("unknown etw_event key `{key}`")));
-                }
-            }
-
-            if !input.is_empty() {
-                input.parse::<Token![,]>()?;
-            }
-        }
-
-        Ok(EtwEventArgsParser {
-            args: EtwEventArgs {
-                id: id.ok_or_else(|| input.error("missing required `id` field"))?,
-                version,
-                mask,
-                skip,
-            },
-        })
-    }
 }
 
 #[derive(Debug, Default, FromMeta)]
