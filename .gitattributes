@@ -1,0 +1,6 @@
+* linguist-vendored
+/* linguist-vendored=false
+/src/** linguist-vendored=false
+/etw-macros/** linguist-vendored=false
+/tests/** linguist-vendored=false
+/examples/** linguist-vendored=false
