@@ -49,15 +49,26 @@ pub(crate) struct EtwPropArgs {
 pub(crate) struct EtwEventArgs {
     pub(crate) id: u16,
     pub(crate) version: Option<u8>,
-    pub(crate) mask: Option<syn::Expr>,
+    pub(crate) keyword_mask: Option<syn::Expr>,
+    pub(crate) enable_flag: Option<syn::Expr>,
     #[darling(default)]
     pub(crate) skip: bool,
+}
+
+#[derive(Debug, Default, FromMeta)]
+#[darling(rename_all = "snake_case")]
+pub(crate) enum EtwProviderKind {
+    #[default]
+    User,
+    Kernel,
 }
 
 #[derive(Debug, Default, FromMeta)]
 pub(crate) struct EtwProviderArgs {
     pub(crate) name: Option<String>,
     pub(crate) guid: Option<String>,
+    #[darling(default)]
+    pub(crate) kind: EtwProviderKind,
 }
 
 /// Minimal struct for checking `skip` without requiring `name`.

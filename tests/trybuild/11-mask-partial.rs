@@ -11,13 +11,13 @@ etw_provider! {
     #[etw_provider(name = "PartialMask", guid = "00000000-0000-0000-0000-000000000002")]
     pub enum PartialEvents {
         // Has mask
-        #[etw_event(id = 1, version = 0, mask = 0x10)]
+        #[etw_event(id = 1, version = 0, keyword_mask = 0x10)]
         pub struct A {
             #[etw_prop(name = "X")]
             pub x: u64,
         }
 
-        // Lacks mask → no .any() generated for entire provider
+        // Lacks keyword_mask → no .any() generated for entire provider
         #[etw_event(id = 2, version = 0)]
         pub struct B {
             #[etw_prop(name = "Y")]

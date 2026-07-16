@@ -9,7 +9,8 @@ use syn::{
 };
 
 use crate::{
-    EtwEventArgs, EtwProviderArgs, guid_literal_from_str, has_skip_in_etw_prop, parse_attr_meta,
+    EtwEventArgs, EtwProviderArgs, EtwProviderKind, guid_literal_from_str, has_skip_in_etw_prop,
+    parse_attr_meta,
 };
 
 pub fn expand(input: TokenStream) -> TokenStream {
@@ -25,6 +26,7 @@ pub fn expand(input: TokenStream) -> TokenStream {
 struct EtwProviderInput {
     provider_name: Option<String>,
     provider_guid: Option<String>,
+    kind: EtwProviderKind,
     enum_vis: Visibility,
     enum_name: Ident,
     variants: Vec<EtwVariant>,
@@ -33,7 +35,8 @@ struct EtwProviderInput {
 struct EtwVariant {
     event_id: u16,
     event_version: Option<u8>,
-    mask: Option<syn::Expr>,
+    keyword_mask: Option<syn::Expr>,
+    enable_flag: Option<syn::Expr>,
     skip: bool,
     attrs: Vec<Attribute>,
     struct_vis: Visibility,
@@ -47,12 +50,14 @@ impl Parse for EtwProviderInput {
 
         let mut provider_name: Option<String> = None;
         let mut provider_guid: Option<String> = None;
+        let mut kind = EtwProviderKind::User;
 
         for attr in &outer_attrs {
             if attr.path().is_ident("etw_provider") {
                 let args: EtwProviderArgs = parse_attr_meta(attr)?;
                 provider_name = args.name;
                 provider_guid = args.guid;
+                kind = args.kind;
             } else {
                 return Err(Error::new_spanned(
                     attr,
@@ -110,10 +115,32 @@ impl Parse for EtwProviderInput {
 
             let args: EtwEventArgs = parse_attr_meta(&event_attr)?;
 
+            match kind {
+                EtwProviderKind::User => {
+                    if args.enable_flag.is_some() {
+                        return Err(Error::new_spanned(
+                            &struct_name,
+                            "`enable_flag` is only valid on events in kernel `etw_provider!` \
+                             blocks (use `keyword_mask` for user providers)",
+                        ));
+                    }
+                }
+                EtwProviderKind::Kernel => {
+                    if args.keyword_mask.is_some() {
+                        return Err(Error::new_spanned(
+                            &struct_name,
+                            "`keyword_mask` is only valid on events in user `etw_provider!` \
+                             blocks (use `enable_flag` for kernel providers)",
+                        ));
+                    }
+                }
+            }
+
             variants.push(EtwVariant {
                 event_id: args.id,
                 event_version: args.version,
-                mask: args.mask,
+                keyword_mask: args.keyword_mask,
+                enable_flag: args.enable_flag,
                 skip: args.skip,
                 attrs: other_attrs,
                 struct_vis,
@@ -129,6 +156,7 @@ impl Parse for EtwProviderInput {
         Ok(EtwProviderInput {
             provider_name,
             provider_guid,
+            kind,
             enum_vis,
             enum_name,
             variants,
@@ -239,36 +267,70 @@ impl EtwProviderInput {
             quote! {}
         };
 
-            let build_provider = if self.provider_guid.is_some() {
-            let event_ids: BTreeSet<_> = non_skipped.iter().map(|v| v.event_id).collect();
+        let build_provider = if self.provider_guid.is_some() {
+            match self.kind {
+                EtwProviderKind::User => {
+                    let event_ids: BTreeSet<_> = non_skipped.iter().map(|v| v.event_id).collect();
+                    let keyword_exprs: Vec<&syn::Expr> = non_skipped.iter().filter_map(|v| v.keyword_mask.as_ref()).collect();
+                    let all_have_keyword = keyword_exprs.len() == non_skipped.len();
 
-            let mask_exprs: Vec<&syn::Expr> = non_skipped.iter().filter_map(|v| v.mask.as_ref()).collect();
-            let all_have_mask = mask_exprs.len() == non_skipped.len();
+                    let any_method = if all_have_keyword && !keyword_exprs.is_empty() {
+                        let combined = keyword_exprs.iter().fold(
+                            quote! { 0u64 },
+                            |acc, expr| quote! { #acc | #expr },
+                        );
+                        quote! { .any(#combined) }
+                    } else {
+                        quote! {}
+                    };
 
-            let any_method = if all_have_mask && !mask_exprs.is_empty() {
-                let combined = mask_exprs.iter().fold(
-                    quote! { 0u64 },
-                    |acc, expr| quote! { #acc | #expr },
-                );
-                quote! { .any(#combined) }
-            } else {
-                quote! {}
-            };
+                    quote! {
+                        pub fn build_provider<F>(callback: F) -> ::ferrisetw::provider::Provider
+                        where
+                            F: Fn(#enum_name) + Send + Sync + 'static,
+                        {
+                            ::ferrisetw::provider::Provider::by_guid(PROVIDER_GUID)
+                                .add_callback(move |record: &::ferrisetw::EventRecord, locator: &::ferrisetw::schema_locator::SchemaLocator| {
+                                    if let Some(event) = #enum_name::try_parse(record, locator) {
+                                        callback(event);
+                                    }
+                                })
+                                .add_filter(::ferrisetw::provider::EventFilter::ByEventIds(vec![#(#event_ids),*]))
+                                #any_method
+                                .build()
+                        }
+                    }
+                }
+                EtwProviderKind::Kernel => {
+                    let flag_exprs: Vec<&syn::Expr> = non_skipped.iter().filter_map(|v| v.enable_flag.as_ref()).collect();
+                    let combined_flags = if flag_exprs.is_empty() {
+                        quote! { 0u32 }
+                    } else {
+                        flag_exprs.iter().fold(
+                            quote! { 0u32 },
+                            |acc, expr| quote! { #acc | #expr },
+                        )
+                    };
 
-            quote! {
-                pub fn build_provider<F>(callback: F) -> ::ferrisetw::provider::Provider
-                where
-                    F: Fn(#enum_name) + Send + Sync + 'static,
-                {
-                    ::ferrisetw::provider::Provider::by_guid(PROVIDER_GUID)
-                        .add_callback(move |record: &::ferrisetw::EventRecord, locator: &::ferrisetw::schema_locator::SchemaLocator| {
-                            if let Some(event) = #enum_name::try_parse(record, locator) {
-                                callback(event);
-                            }
-                        })
-                        .add_filter(::ferrisetw::provider::EventFilter::ByEventIds(vec![#(#event_ids),*]))
-                        #any_method
-                        .build()
+                    quote! {
+                        pub fn build_provider<F>(callback: F) -> ::ferrisetw::provider::Provider
+                        where
+                            F: Fn(#enum_name) + Send + Sync + 'static,
+                        {
+                            ::ferrisetw::provider::Provider::kernel(
+                                &::ferrisetw::provider::kernel_providers::KernelProvider::new(
+                                    PROVIDER_GUID,
+                                    #combined_flags,
+                                )
+                            )
+                            .add_callback(move |record: &::ferrisetw::EventRecord, locator: &::ferrisetw::schema_locator::SchemaLocator| {
+                                if let Some(event) = #enum_name::try_parse(record, locator) {
+                                    callback(event);
+                                }
+                            })
+                            .build()
+                        }
+                    }
                 }
             }
         } else {

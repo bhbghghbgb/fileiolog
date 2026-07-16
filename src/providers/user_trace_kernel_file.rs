@@ -18,7 +18,7 @@ etw_provider! {
     #[etw_provider(name = "Microsoft-Windows-Kernel-File", guid = "EDD08927-9CC4-4E65-B970-C2560FB5C289")]
     pub enum UserTraceKernelFileEvent {
         // ── Event ID 10 ──────────────────────────────────────
-        #[etw_event(id = 10, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILENAME)]
+        #[etw_event(id = 10, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILENAME)]
         pub struct NameCreateV0 {
             #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
             pub file_key: usize,
@@ -27,7 +27,7 @@ etw_provider! {
         }
 
         // ── Event ID 11 ──────────────────────────────────────
-        #[etw_event(id = 11, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILENAME)]
+        #[etw_event(id = 11, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILENAME)]
         pub struct NameDeleteV0 {
             #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
             pub file_key: usize,
@@ -36,7 +36,7 @@ etw_provider! {
         }
 
         // ── Event ID 12 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 12, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_CREATE)]
+        #[etw_event(id = 12, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_CREATE)]
         pub struct CreateV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -54,7 +54,7 @@ etw_provider! {
             pub file_name: String,
         }
 
-        #[etw_event(id = 12, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_CREATE)]
+        #[etw_event(id = 12, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_CREATE)]
         pub struct CreateV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -73,7 +73,7 @@ etw_provider! {
         }
 
         // ── Event ID 13 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 13, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 13, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct CleanupV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -85,7 +85,7 @@ etw_provider! {
             pub file_key: usize,
         }
 
-        #[etw_event(id = 13, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 13, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct CleanupV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -98,7 +98,7 @@ etw_provider! {
         }
 
         // ── Event ID 14 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 14, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 14, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct CloseV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -110,7 +110,7 @@ etw_provider! {
             pub file_key: usize,
         }
 
-        #[etw_event(id = 14, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 14, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct CloseV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -123,7 +123,7 @@ etw_provider! {
         }
 
         // ── Event ID 15 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 15, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_READ)]
+        #[etw_event(id = 15, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_READ)]
         pub struct ReadV0 {
             #[etw_prop(name = "ByteOffset")]
             pub byte_offset: u64,
@@ -141,7 +141,7 @@ etw_provider! {
             pub io_flags: u32,
         }
 
-        #[etw_event(id = 15, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_READ)]
+        #[etw_event(id = 15, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_READ)]
         pub struct ReadV1 {
             #[etw_prop(name = "ByteOffset")]
             pub byte_offset: u64,
@@ -162,7 +162,7 @@ etw_provider! {
         }
 
         // ── Event ID 16 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 16, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_WRITE)]
+        #[etw_event(id = 16, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_WRITE)]
         pub struct WriteV0 {
             #[etw_prop(name = "ByteOffset")]
             pub byte_offset: u64,
@@ -180,7 +180,7 @@ etw_provider! {
             pub io_flags: u32,
         }
 
-        #[etw_event(id = 16, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_WRITE)]
+        #[etw_event(id = 16, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_WRITE)]
         pub struct WriteV1 {
             #[etw_prop(name = "ByteOffset")]
             pub byte_offset: u64,
@@ -201,7 +201,7 @@ etw_provider! {
         }
 
         // ── Event ID 17 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 17, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 17, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct SetInformationV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -217,7 +217,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 17, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 17, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct SetInformationV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -234,7 +234,7 @@ etw_provider! {
         }
 
         // ── Event ID 18 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 18, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 18, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct SetDeleteV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -250,7 +250,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 18, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 18, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct SetDeleteV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -267,7 +267,7 @@ etw_provider! {
         }
 
         // ── Event ID 19 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 19, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 19, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct RenameV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -283,7 +283,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 19, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 19, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct RenameV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -300,7 +300,7 @@ etw_provider! {
         }
 
         // ── Event ID 20 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 20, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 20, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct DirEnumV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -320,7 +320,7 @@ etw_provider! {
             pub file_name: String,
         }
 
-        #[etw_event(id = 20, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 20, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct DirEnumV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -341,7 +341,7 @@ etw_provider! {
         }
 
         // ── Event ID 21 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 21, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 21, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct FlushV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -353,7 +353,7 @@ etw_provider! {
             pub file_key: usize,
         }
 
-        #[etw_event(id = 21, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 21, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct FlushV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -366,7 +366,7 @@ etw_provider! {
         }
 
         // ── Event ID 22 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 22, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 22, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct QueryInformationV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -382,7 +382,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 22, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 22, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct QueryInformationV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -399,7 +399,7 @@ etw_provider! {
         }
 
         // ── Event ID 23 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 23, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 23, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct FsctlV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -415,7 +415,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 23, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 23, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct FsctlV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -432,7 +432,7 @@ etw_provider! {
         }
 
         // ── Event ID 24 (v0) ─────────────────────────────────
-        #[etw_event(id = 24, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_OP_END)]
+        #[etw_event(id = 24, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_OP_END)]
         pub struct OperationEndV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -443,7 +443,7 @@ etw_provider! {
         }
 
         // ── Event ID 25 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 25, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 25, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct DirNotifyV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -463,7 +463,7 @@ etw_provider! {
             pub file_name: String,
         }
 
-        #[etw_event(id = 25, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 25, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct DirNotifyV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -484,7 +484,7 @@ etw_provider! {
         }
 
         // ── Event ID 26 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 26, version = 0, mask = masks::KERNEL_FILE_KEYWORD_DELETE_PATH)]
+        #[etw_event(id = 26, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_DELETE_PATH)]
         pub struct DeletePathV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -502,7 +502,7 @@ etw_provider! {
             pub file_path: String,
         }
 
-        #[etw_event(id = 26, version = 1, mask = masks::KERNEL_FILE_KEYWORD_DELETE_PATH)]
+        #[etw_event(id = 26, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_DELETE_PATH)]
         pub struct DeletePathV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -521,7 +521,7 @@ etw_provider! {
         }
 
         // ── Event ID 27 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 27, version = 0, mask = masks::KERNEL_FILE_KEYWORD_RENAME_SETLINK_PATH)]
+        #[etw_event(id = 27, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_RENAME_SETLINK_PATH)]
         pub struct RenamePathV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -539,7 +539,7 @@ etw_provider! {
             pub file_path: String,
         }
 
-        #[etw_event(id = 27, version = 1, mask = masks::KERNEL_FILE_KEYWORD_RENAME_SETLINK_PATH)]
+        #[etw_event(id = 27, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_RENAME_SETLINK_PATH)]
         pub struct RenamePathV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -558,7 +558,7 @@ etw_provider! {
         }
 
         // ── Event ID 28 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 28, version = 0, mask = masks::KERNEL_FILE_KEYWORD_RENAME_SETLINK_PATH)]
+        #[etw_event(id = 28, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_RENAME_SETLINK_PATH)]
         pub struct SetLinkPathV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -576,7 +576,7 @@ etw_provider! {
             pub file_path: String,
         }
 
-        #[etw_event(id = 28, version = 1, mask = masks::KERNEL_FILE_KEYWORD_RENAME_SETLINK_PATH)]
+        #[etw_event(id = 28, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_RENAME_SETLINK_PATH)]
         pub struct SetLinkPathV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -595,7 +595,7 @@ etw_provider! {
         }
 
         // ── Event ID 29 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 29, version = 0, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 29, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct SetLinkV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -611,7 +611,7 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        #[etw_event(id = 29, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 29, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct SetLinkV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -628,7 +628,7 @@ etw_provider! {
         }
 
         // ── Event ID 30 (v0, v1) ─────────────────────────────
-        #[etw_event(id = 30, version = 0, mask = masks::KERNEL_FILE_KEYWORD_CREATE_NEW_FILE)]
+        #[etw_event(id = 30, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_CREATE_NEW_FILE)]
         pub struct CreateNewFileV0 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -646,7 +646,7 @@ etw_provider! {
             pub file_name: String,
         }
 
-        #[etw_event(id = 30, version = 1, mask = masks::KERNEL_FILE_KEYWORD_CREATE_NEW_FILE)]
+        #[etw_event(id = 30, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_CREATE_NEW_FILE)]
         pub struct CreateNewFileV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -665,7 +665,7 @@ etw_provider! {
         }
 
         // ── Event ID 31 (v1) ─────────────────────────────────
-        #[etw_event(id = 31, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 31, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct SetSecurityV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -682,7 +682,7 @@ etw_provider! {
         }
 
         // ── Event ID 32 (v1) ─────────────────────────────────
-        #[etw_event(id = 32, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 32, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct QuerySecurityV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -699,7 +699,7 @@ etw_provider! {
         }
 
         // ── Event ID 33 (v1) ─────────────────────────────────
-        #[etw_event(id = 33, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 33, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct SetEAV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,
@@ -716,7 +716,7 @@ etw_provider! {
         }
 
         // ── Event ID 34 (v1) ─────────────────────────────────
-        #[etw_event(id = 34, version = 1, mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
+        #[etw_event(id = 34, version = 1, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO)]
         pub struct QueryEAV1 {
             #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
             pub irp: usize,

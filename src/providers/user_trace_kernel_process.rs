@@ -20,7 +20,7 @@ etw_provider! {
     #[etw_provider(name = "Microsoft-Windows-Kernel-Process", guid = "22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716")]
     pub enum UserTraceKernelProcessEvent {
         // ── Event ID 1 (ProcessStart) ──────────────────────────
-        #[etw_event(id = 1, version = 0, mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        #[etw_event(id = 1, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
         pub struct ProcessStartV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -34,7 +34,7 @@ etw_provider! {
             pub image_name: String,
         }
 
-        #[etw_event(id = 1, version = 1, mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        #[etw_event(id = 1, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
         pub struct ProcessStartV1 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -50,7 +50,7 @@ etw_provider! {
             pub image_name: String,
         }
 
-        #[etw_event(id = 1, version = 2, mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        #[etw_event(id = 1, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
         pub struct ProcessStartV2 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -74,7 +74,7 @@ etw_provider! {
             pub package_relative_app_id: String,
         }
 
-        #[etw_event(id = 1, version = 3, mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        #[etw_event(id = 1, version = 3, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
         pub struct ProcessStartV3 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -108,7 +108,7 @@ etw_provider! {
             pub package_relative_app_id: String,
         }
 
-        #[etw_event(id = 2, version = 0, mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        #[etw_event(id = 2, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
         pub struct ProcessStopV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -130,7 +130,7 @@ etw_provider! {
             pub image_name: String,
         }
 
-        #[etw_event(id = 2, version = 1, mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        #[etw_event(id = 2, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
         pub struct ProcessStopV1 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -164,7 +164,7 @@ etw_provider! {
             pub image_name: String,
         }
 
-        #[etw_event(id = 2, version = 2, mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        #[etw_event(id = 2, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
         pub struct ProcessStopV2 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -201,7 +201,7 @@ etw_provider! {
         }
 
         // ── Event ID 3 (ThreadStart) ───────────────────────────
-        #[etw_event(id = 3, version = 0, mask = masks::WINEVENT_KEYWORD_THREAD)]
+        #[etw_event(id = 3, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
         pub struct ThreadStartV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -223,7 +223,7 @@ etw_provider! {
             pub teb_base: usize,
         }
 
-        #[etw_event(id = 3, version = 1, mask = masks::WINEVENT_KEYWORD_THREAD)]
+        #[etw_event(id = 3, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
         pub struct ThreadStartV1 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -248,7 +248,7 @@ etw_provider! {
         }
 
         // ── Event ID 4 (ThreadStop) ────────────────────────────
-        #[etw_event(id = 4, version = 0, mask = masks::WINEVENT_KEYWORD_THREAD)]
+        #[etw_event(id = 4, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
         pub struct ThreadStopV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -270,7 +270,7 @@ etw_provider! {
             pub teb_base: usize,
         }
 
-        #[etw_event(id = 4, version = 1, mask = masks::WINEVENT_KEYWORD_THREAD)]
+        #[etw_event(id = 4, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
         pub struct ThreadStopV1 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -297,7 +297,7 @@ etw_provider! {
         }
 
         // ── Event ID 5 (ImageLoad) ─────────────────────────────
-        #[etw_event(id = 5, version = 0, mask = masks::WINEVENT_KEYWORD_IMAGE)]
+        #[etw_event(id = 5, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_IMAGE)]
         pub struct ImageLoadV0 {
             #[etw_prop(name = "ImageBase", parse_as = ferrisetw::parser::Pointer)]
             pub image_base: usize,
@@ -316,7 +316,7 @@ etw_provider! {
         }
 
         // ── Event ID 6 (ImageUnload) ───────────────────────────
-        #[etw_event(id = 6, version = 0, mask = masks::WINEVENT_KEYWORD_IMAGE)]
+        #[etw_event(id = 6, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_IMAGE)]
         pub struct ImageUnloadV0 {
             #[etw_prop(name = "ImageBase", parse_as = ferrisetw::parser::Pointer)]
             pub image_base: usize,
@@ -335,7 +335,7 @@ etw_provider! {
         }
 
         // ── Event ID 7 (CpuBasePriorityChange) ─────────────────
-        #[etw_event(id = 7, version = 0, mask = masks::WINEVENT_KEYWORD_CPU_PRIORITY)]
+        #[etw_event(id = 7, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_CPU_PRIORITY)]
         pub struct CpuBasePriorityChangeV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -348,7 +348,7 @@ etw_provider! {
         }
 
         // ── Event ID 8 (CpuPriorityChange) ─────────────────────
-        #[etw_event(id = 8, version = 0, mask = masks::WINEVENT_KEYWORD_CPU_PRIORITY)]
+        #[etw_event(id = 8, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_CPU_PRIORITY)]
         pub struct CpuPriorityChangeV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -361,7 +361,7 @@ etw_provider! {
         }
 
         // ── Event ID 9 (PagePriorityChange) ────────────────────
-        #[etw_event(id = 9, version = 0, mask = masks::WINEVENT_KEYWORD_OTHER_PRIORITY)]
+        #[etw_event(id = 9, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_OTHER_PRIORITY)]
         pub struct PagePriorityChangeV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -374,7 +374,7 @@ etw_provider! {
         }
 
         // ── Event ID 10 (IoPriorityChange) ─────────────────────
-        #[etw_event(id = 10, version = 0, mask = masks::WINEVENT_KEYWORD_OTHER_PRIORITY)]
+        #[etw_event(id = 10, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_OTHER_PRIORITY)]
         pub struct IoPriorityChangeV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -387,13 +387,13 @@ etw_provider! {
         }
 
         // ── Event ID 11 (ProcessFreezeStart) ───────────────────
-        #[etw_event(id = 11, version = 0, mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
+        #[etw_event(id = 11, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
         pub struct ProcessFreezeStartV0 {
             #[etw_prop(name = "FrozenProcessID")]
             pub frozen_process_id: u32,
         }
 
-        #[etw_event(id = 11, version = 1, mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
+        #[etw_event(id = 11, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
         pub struct ProcessFreezeStartV1 {
             #[etw_prop(name = "FrozenProcessID")]
             pub frozen_process_id: u32,
@@ -402,13 +402,13 @@ etw_provider! {
         }
 
         // ── Event ID 12 (ProcessFreezeStop) ────────────────────
-        #[etw_event(id = 12, version = 0, mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
+        #[etw_event(id = 12, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
         pub struct ProcessFreezeStopV0 {
             #[etw_prop(name = "FrozenProcessID")]
             pub frozen_process_id: u32,
         }
 
-        #[etw_event(id = 12, version = 1, mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
+        #[etw_event(id = 12, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
         pub struct ProcessFreezeStopV1 {
             #[etw_prop(name = "FrozenProcessID")]
             pub frozen_process_id: u32,
@@ -417,7 +417,7 @@ etw_provider! {
         }
 
         // ── Event ID 13 (JobStart) ─────────────────────────────
-        #[etw_event(id = 13, version = 0, mask = masks::WINEVENT_KEYWORD_JOB)]
+        #[etw_event(id = 13, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB)]
         pub struct JobStartV0 {
             #[etw_prop(name = "ContainerID", )]
             pub container_id: windows::core::GUID,
@@ -428,7 +428,7 @@ etw_provider! {
         }
 
         // ── Event ID 14 (JobTerminateStop) ─────────────────────
-        #[etw_event(id = 14, version = 0, mask = masks::WINEVENT_KEYWORD_JOB)]
+        #[etw_event(id = 14, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB)]
         pub struct JobTerminateStopV0 {
             #[etw_prop(name = "ContainerID", )]
             pub container_id: windows::core::GUID,
@@ -439,7 +439,7 @@ etw_provider! {
         }
 
         // ── Event ID 15 (ProcessRundown) ───────────────────────
-        #[etw_event(id = 15, version = 0, mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        #[etw_event(id = 15, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
         pub struct ProcessRundownV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -463,7 +463,7 @@ etw_provider! {
             pub package_relative_app_id: String,
         }
 
-        #[etw_event(id = 15, version = 1, mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        #[etw_event(id = 15, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
         pub struct ProcessRundownV1 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
@@ -498,11 +498,11 @@ etw_provider! {
         }
 
         // ── Event ID 16 (task_0) ───────────────────────────────
-        #[etw_event(id = 16, version = 0, mask = masks::WINEVENT_KEYWORD_ENABLE_PROCESS_TRACING_CALLBACKS)]
+        #[etw_event(id = 16, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_ENABLE_PROCESS_TRACING_CALLBACKS)]
         pub struct EnableProcessTracingCallbacksV0 {}
 
         // ── Event ID 17 (PsDiskIoAttributionStart) ─────────────
-        #[etw_event(id = 17, version = 0, mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(id = 17, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
         pub struct PsDiskIoAttributionStartV0 {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
@@ -513,7 +513,7 @@ etw_provider! {
         }
 
         // ── Event ID 18 (PsDiskIoAttributionStop) ──────────────
-        #[etw_event(id = 18, version = 0, mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(id = 18, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
         pub struct PsDiskIoAttributionStopV0 {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
@@ -524,7 +524,7 @@ etw_provider! {
         }
 
         // ── Event ID 19 (PsIoRateControlStart) ─────────────────
-        #[etw_event(id = 19, version = 0, mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(id = 19, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
         pub struct PsIoRateControlStartV0 {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
@@ -540,7 +540,7 @@ etw_provider! {
             pub status_code: u32,
         }
 
-        #[etw_event(id = 19, version = 1, mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(id = 19, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
         pub struct PsIoRateControlStartV1 {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
@@ -572,7 +572,7 @@ etw_provider! {
             pub status_code: u32,
         }
 
-        #[etw_event(id = 19, version = 2, mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(id = 19, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
         pub struct PsIoRateControlStartV2 {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
@@ -611,7 +611,7 @@ etw_provider! {
         }
 
         // ── Event ID 20 (PsIoRateControlStop) ──────────────────
-        #[etw_event(id = 20, version = 0, mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(id = 20, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
         pub struct PsIoRateControlStopV0 {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
@@ -627,7 +627,7 @@ etw_provider! {
             pub status_code: u32,
         }
 
-        #[etw_event(id = 20, version = 1, mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(id = 20, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
         pub struct PsIoRateControlStopV1 {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
@@ -659,7 +659,7 @@ etw_provider! {
             pub status_code: u32,
         }
 
-        #[etw_event(id = 20, version = 2, mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(id = 20, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
         pub struct PsIoRateControlStopV2 {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
@@ -698,7 +698,7 @@ etw_provider! {
         }
 
         // ── Event ID 21 (ThreadWorkOnBehalfUpdate) ──────────────
-        #[etw_event(id = 21, version = 0, mask = masks::WINEVENT_KEYWORD_WORK_ON_BEHALF)]
+        #[etw_event(id = 21, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_WORK_ON_BEHALF)]
         pub struct ThreadWorkOnBehalfUpdateV0 {
             #[etw_prop(name = "OldWorkOnBehalfThreadID")]
             pub old_work_on_behalf_thread_id: u32,
@@ -707,7 +707,7 @@ etw_provider! {
         }
 
         // ── Event ID 22 (JobServerSiloStart) ───────────────────
-        #[etw_event(id = 22, version = 0, mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
+        #[etw_event(id = 22, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
         pub struct JobServerSiloStartV0 {
             #[etw_prop(name = "ContainerID", )]
             pub container_id: windows::core::GUID,
@@ -718,7 +718,7 @@ etw_provider! {
         }
 
         // ── Event ID 23 (JobServerSiloStart23) ──────────────────
-        #[etw_event(id = 23, version = 0, mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
+        #[etw_event(id = 23, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
         pub struct JobServerSiloStart23V0 {
             #[etw_prop(name = "ContainerID", )]
             pub container_id: windows::core::GUID,
@@ -729,7 +729,7 @@ etw_provider! {
         }
 
         // ── Event ID 24 (JobServerSiloStartStop) ────────────────
-        #[etw_event(id = 24, version = 0, mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
+        #[etw_event(id = 24, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
         pub struct JobServerSiloStartStopV0 {
             #[etw_prop(name = "ContainerID", )]
             pub container_id: windows::core::GUID,
@@ -742,7 +742,7 @@ etw_provider! {
         }
 
         // ── Event ID 25 (JobServerSiloStart25) ──────────────────
-        #[etw_event(id = 25, version = 0, mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
+        #[etw_event(id = 25, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
         pub struct JobServerSiloStart25V0 {
             #[etw_prop(name = "ContainerID", )]
             pub container_id: windows::core::GUID,
@@ -753,7 +753,7 @@ etw_provider! {
         }
 
         // ── Event ID 26 (JobServerSiloStartStop26) ──────────────
-        #[etw_event(id = 26, version = 0, mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
+        #[etw_event(id = 26, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
         pub struct JobServerSiloStartStop26V0 {
             #[etw_prop(name = "ContainerID", )]
             pub container_id: windows::core::GUID,
