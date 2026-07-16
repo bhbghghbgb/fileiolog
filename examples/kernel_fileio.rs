@@ -244,10 +244,10 @@ fn main() {
             0x11d1,
             [0x84, 0xf4, 0x00, 0x00, 0xf8, 0x04, 0x64, 0xe3],
         ),
-        EVENT_TRACE_FLAG_DISK_FILE_IO.0
-            | EVENT_TRACE_FLAG_DISK_IO.0
-            | EVENT_TRACE_FLAG_FILE_IO.0
-            | EVENT_TRACE_FLAG_FILE_IO_INIT.0,
+        EVENT_TRACE_FLAG_DISK_FILE_IO.0, // FileIO_Name, includes FileRundown event
+                                         // | EVENT_TRACE_FLAG_DISK_IO.0
+                                         // | EVENT_TRACE_FLAG_FILE_IO.0
+                                         // | EVENT_TRACE_FLAG_FILE_IO_INIT.0,
     ))
     .add_callback(callback)
     .build();
