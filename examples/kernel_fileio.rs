@@ -229,6 +229,16 @@ fn main() {
 
                 if let Some(parsed) = parse_event(opcode, &parser) {
                     println!("[FileIO-{}] {:?}", name, parsed);
+                } else {
+                    log::debug!(
+                        "Unmatched FileIO event: opcode={}, event_id={}, version={}, provider=\"{}\", task=\"{}\", opcode_name=\"{}\"",
+                        opcode,
+                        record.event_id(),
+                        record.version(),
+                        schema.provider_name(),
+                        schema.task_name(),
+                        schema.opcode_name(),
+                    );
                 }
             }
             Err(err) => {

@@ -312,13 +312,13 @@ impl EtwProviderInput {
                     if let Some(ref kw) = self.provider_keyword_mask {
                         keyword_exprs.push(kw);
                     }
-                    keyword_exprs.extend(non_skipped.iter().filter_map(|v| v.keyword_mask.as_ref()));
+                    keyword_exprs
+                        .extend(non_skipped.iter().filter_map(|v| v.keyword_mask.as_ref()));
 
                     let any_method = if !keyword_exprs.is_empty() {
-                        let combined = keyword_exprs.iter().fold(
-                            quote! { 0u64 },
-                            |acc, expr| quote! { #acc | #expr },
-                        );
+                        let combined = keyword_exprs
+                            .iter()
+                            .fold(quote! { 0u64 }, |acc, expr| quote! { #acc | #expr });
                         quote! { .any(#combined) }
                     } else {
                         quote! {}
@@ -351,10 +351,9 @@ impl EtwProviderInput {
                     let combined_flags = if flag_exprs.is_empty() {
                         quote! { 0u32 }
                     } else {
-                        flag_exprs.iter().fold(
-                            quote! { 0u32 },
-                            |acc, expr| quote! { #acc | #expr },
-                        )
+                        flag_exprs
+                            .iter()
+                            .fold(quote! { 0u32 }, |acc, expr| quote! { #acc | #expr })
                     };
 
                     quote! {
@@ -402,7 +401,22 @@ impl EtwProviderInput {
                     match (record.event_id(), record.version()) {
                         #(#exact_match_arms)*
                         #(#wildcard_match_arms)*
-                        _ => None,
+                        _ => {
+                            #[cfg(debug_assertions)]
+                            {
+                                log::debug!(
+                                    "Unmatched ETW event: event_id={}, version={}, opcode={}, provider=\"{}\", task=\"{}\", opcode_name=\"{}\", decoding_source={:?}",
+                                    record.event_id(),
+                                    record.version(),
+                                    record.opcode(),
+                                    schema.provider_name(),
+                                    schema.task_name(),
+                                    schema.opcode_name(),
+                                    schema.decoding_source(),
+                                );
+                            }
+                            None
+                        }
                     }
                 }
             }
