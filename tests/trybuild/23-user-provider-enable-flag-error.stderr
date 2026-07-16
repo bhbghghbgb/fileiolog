@@ -1,0 +1,5 @@
+error: `enable_flag` on `#[etw_provider(...)]` is only valid for kernel providers (use `keyword_mask` for user providers)
+ --> tests/trybuild/23-user-provider-enable-flag-error.rs:7:5
+  |
+7 |     #[etw_provider(kind = "user", name = "Test", guid = "00000000-0000-0000-0000-000000000099", enable_flag = 0x01)]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

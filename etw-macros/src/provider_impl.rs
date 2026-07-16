@@ -27,6 +27,8 @@ struct EtwProviderInput {
     provider_name: Option<String>,
     provider_guid: Option<String>,
     kind: EtwProviderKind,
+    provider_keyword_mask: Option<syn::Expr>,
+    provider_enable_flag: Option<syn::Expr>,
     enum_vis: Visibility,
     enum_name: Ident,
     variants: Vec<EtwVariant>,
@@ -51,6 +53,8 @@ impl Parse for EtwProviderInput {
         let mut provider_name: Option<String> = None;
         let mut provider_guid: Option<String> = None;
         let mut kind = EtwProviderKind::User;
+        let mut provider_keyword_mask: Option<syn::Expr> = None;
+        let mut provider_enable_flag: Option<syn::Expr> = None;
 
         for attr in &outer_attrs {
             if attr.path().is_ident("etw_provider") {
@@ -58,6 +62,27 @@ impl Parse for EtwProviderInput {
                 provider_name = args.name;
                 provider_guid = args.guid;
                 kind = args.kind;
+                provider_keyword_mask = args.keyword_mask;
+                provider_enable_flag = args.enable_flag;
+
+                match kind {
+                    EtwProviderKind::User => {
+                        if provider_enable_flag.is_some() {
+                            return Err(Error::new_spanned(
+                                attr,
+                                "`enable_flag` on `#[etw_provider(...)]` is only valid for kernel providers (use `keyword_mask` for user providers)",
+                            ));
+                        }
+                    }
+                    EtwProviderKind::Kernel => {
+                        if provider_keyword_mask.is_some() {
+                            return Err(Error::new_spanned(
+                                attr,
+                                "`keyword_mask` on `#[etw_provider(...)]` is only valid for user providers (use `enable_flag` for kernel providers)",
+                            ));
+                        }
+                    }
+                }
             } else {
                 return Err(Error::new_spanned(
                     attr,
@@ -65,6 +90,8 @@ impl Parse for EtwProviderInput {
                 ));
             }
         }
+
+        let has_provider_flag = provider_enable_flag.is_some();
 
         let enum_vis: Visibility = input.parse()?;
         input.parse::<Token![enum]>()?;
@@ -133,6 +160,13 @@ impl Parse for EtwProviderInput {
                              blocks (use `enable_flag` for kernel providers)",
                         ));
                     }
+                    if !has_provider_flag && args.enable_flag.is_none() {
+                        return Err(Error::new_spanned(
+                            &struct_name,
+                            "`enable_flag` is required on each event when no provider-wide \
+                             `enable_flag` is set on `#[etw_provider(...)]`",
+                        ));
+                    }
                 }
             }
 
@@ -157,6 +191,8 @@ impl Parse for EtwProviderInput {
             provider_name,
             provider_guid,
             kind,
+            provider_keyword_mask,
+            provider_enable_flag,
             enum_vis,
             enum_name,
             variants,
@@ -271,10 +307,14 @@ impl EtwProviderInput {
             match self.kind {
                 EtwProviderKind::User => {
                     let event_ids: BTreeSet<_> = non_skipped.iter().map(|v| v.event_id).collect();
-                    let keyword_exprs: Vec<&syn::Expr> = non_skipped.iter().filter_map(|v| v.keyword_mask.as_ref()).collect();
-                    let all_have_keyword = keyword_exprs.len() == non_skipped.len();
 
-                    let any_method = if all_have_keyword && !keyword_exprs.is_empty() {
+                    let mut keyword_exprs: Vec<&syn::Expr> = Vec::new();
+                    if let Some(ref kw) = self.provider_keyword_mask {
+                        keyword_exprs.push(kw);
+                    }
+                    keyword_exprs.extend(non_skipped.iter().filter_map(|v| v.keyword_mask.as_ref()));
+
+                    let any_method = if !keyword_exprs.is_empty() {
                         let combined = keyword_exprs.iter().fold(
                             quote! { 0u64 },
                             |acc, expr| quote! { #acc | #expr },
@@ -302,7 +342,12 @@ impl EtwProviderInput {
                     }
                 }
                 EtwProviderKind::Kernel => {
-                    let flag_exprs: Vec<&syn::Expr> = non_skipped.iter().filter_map(|v| v.enable_flag.as_ref()).collect();
+                    let mut flag_exprs: Vec<&syn::Expr> = Vec::new();
+                    if let Some(ref f) = self.provider_enable_flag {
+                        flag_exprs.push(f);
+                    }
+                    flag_exprs.extend(non_skipped.iter().filter_map(|v| v.enable_flag.as_ref()));
+
                     let combined_flags = if flag_exprs.is_empty() {
                         quote! { 0u32 }
                     } else {

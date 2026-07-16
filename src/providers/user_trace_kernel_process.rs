@@ -17,7 +17,7 @@ pub mod masks {
 }
 
 etw_provider! {
-    #[etw_provider(name = "Microsoft-Windows-Kernel-Process", guid = "22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716")]
+    #[etw_provider(kind = "user", name = "Microsoft-Windows-Kernel-Process", guid = "22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716")]
     pub enum UserTraceKernelProcessEvent {
         // ── Event ID 1 (ProcessStart) ──────────────────────────
         #[etw_event(id = 1, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]

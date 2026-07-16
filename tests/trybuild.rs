@@ -16,4 +16,12 @@ fn trybuild_tests() {
     t.pass("tests/trybuild/13-etw-prop-convert.rs");
     t.compile_fail("tests/trybuild/14-convert-without-parse-as.rs");
     t.compile_fail("tests/trybuild/15-skip-prop.rs");
+    t.pass("tests/trybuild/16-kernel-basic.rs");
+    t.pass("tests/trybuild/17-kernel-provider-flag.rs");
+    t.pass("tests/trybuild/18-user-provider-keyword.rs");
+    t.compile_fail("tests/trybuild/19-kernel-keyword-mask-error.rs");
+    t.compile_fail("tests/trybuild/20-user-enable-flag-error.rs");
+    t.compile_fail("tests/trybuild/21-kernel-no-flag-error.rs");
+    t.compile_fail("tests/trybuild/22-kernel-provider-keyword-mask-error.rs");
+    t.compile_fail("tests/trybuild/23-user-provider-enable-flag-error.rs");
 }

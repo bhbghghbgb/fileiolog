@@ -1,0 +1,5 @@
+error: `enable_flag` is only valid on events in kernel `etw_provider!` blocks (use `keyword_mask` for user providers)
+  --> tests/trybuild/20-user-enable-flag-error.rs:10:20
+   |
+10 |         pub struct A {
+   |                    ^

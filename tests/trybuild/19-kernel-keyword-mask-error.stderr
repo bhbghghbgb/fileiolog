@@ -1,0 +1,5 @@
+error: `keyword_mask` is only valid on events in user `etw_provider!` blocks (use `enable_flag` for kernel providers)
+  --> tests/trybuild/19-kernel-keyword-mask-error.rs:10:20
+   |
+10 |         pub struct A {
+   |                    ^

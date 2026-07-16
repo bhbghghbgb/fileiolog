@@ -15,7 +15,7 @@ pub mod masks {
 }
 
 etw_provider! {
-    #[etw_provider(name = "Microsoft-Windows-Kernel-File", guid = "EDD08927-9CC4-4E65-B970-C2560FB5C289")]
+    #[etw_provider(kind = "user", name = "Microsoft-Windows-Kernel-File", guid = "EDD08927-9CC4-4E65-B970-C2560FB5C289")]
     pub enum UserTraceKernelFileEvent {
         // ── Event ID 10 ──────────────────────────────────────
         #[etw_event(id = 10, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILENAME)]

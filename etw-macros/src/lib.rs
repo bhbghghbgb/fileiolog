@@ -69,6 +69,8 @@ pub(crate) struct EtwProviderArgs {
     pub(crate) guid: Option<String>,
     #[darling(default)]
     pub(crate) kind: EtwProviderKind,
+    pub(crate) keyword_mask: Option<syn::Expr>,
+    pub(crate) enable_flag: Option<syn::Expr>,
 }
 
 /// Minimal struct for checking `skip` without requiring `name`.

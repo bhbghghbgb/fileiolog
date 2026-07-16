@@ -1,0 +1,5 @@
+error: `keyword_mask` on `#[etw_provider(...)]` is only valid for user providers (use `enable_flag` for kernel providers)
+ --> tests/trybuild/22-kernel-provider-keyword-mask-error.rs:7:5
+  |
+7 |     #[etw_provider(kind = "kernel", guid = "00000000-0000-0000-0000-000000000099", keyword_mask = 0x10, enable_flag = 0x01)]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
