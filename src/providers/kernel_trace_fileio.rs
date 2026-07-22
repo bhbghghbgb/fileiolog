@@ -14,79 +14,17 @@ etw_provider! {
         guid = "90cbdc39-4a3e-11d1-84f4-0000f80464e3"
     )]
     pub enum KernelTraceFileIoEvent {
-        // ── Event type 0: Name (FileIo_Name) ─────────────────
-        // Exists in V0, V1, V2 — all with the same fields
-        // EVENT_TRACE_FLAG_DISK_FILE_IO
-        #[etw_event(id = 0, version = 0, enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
-        pub struct NameV0 {
+
+        // ── Template: FileIo_Name ──────────────────────────────
+        template FileIo_Name {
             #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
             pub file_object: usize,
             #[etw_prop(name = "FileName")]
             pub file_name: String,
         }
 
-        #[etw_event(id = 0, version = 1, enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
-        pub struct NameV1 {
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileName")]
-            pub file_name: String,
-        }
-
-        #[etw_event(id = 0, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
-        pub struct NameV2 {
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileName")]
-            pub file_name: String,
-        }
-
-        // ── Event type 32: FileCreate (FileIo_Name) ──────────
-        // Exists in V1, V2 — same fields as Name
-        // EVENT_TRACE_FLAG_DISK_FILE_IO
-        #[etw_event(id = 32, version = 1, enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
-        pub struct FileCreateV1 {
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileName")]
-            pub file_name: String,
-        }
-
-        #[etw_event(id = 32, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
-        pub struct FileCreateV2 {
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileName")]
-            pub file_name: String,
-        }
-
-        // ── Event type 35: FileDelete (FileIo_Name) ──────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_DISK_FILE_IO
-        #[etw_event(id = 35, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
-        pub struct FileDeleteV2 {
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileName")]
-            pub file_name: String,
-        }
-
-        // ── Event type 36: FileRundown (FileIo_Name) ─────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_DISK_FILE_IO
-        #[etw_event(id = 36, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
-        pub struct FileRundownV2 {
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileName")]
-            pub file_name: String,
-        }
-
-        // ── Event type 64: Create (FileIo_Create) ────────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 64, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct CreateV2 {
+        // ── Template: FileIo_Create ────────────────────────────
+        template FileIo_Create {
             #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
             pub irp_ptr: usize,
             #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
@@ -103,11 +41,8 @@ etw_provider! {
             pub open_path: String,
         }
 
-        // ── Event type 65: Cleanup (FileIo_SimpleOp) ─────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 65, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct CleanupV2 {
+        // ── Template: FileIo_SimpleOp ──────────────────────────
+        template FileIo_SimpleOp {
             #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
             pub irp_ptr: usize,
             #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
@@ -118,26 +53,8 @@ etw_provider! {
             pub file_key: usize,
         }
 
-        // ── Event type 66: Close (FileIo_SimpleOp) ───────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 66, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct CloseV2 {
-            #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
-            pub irp_ptr: usize,
-            #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
-            pub ttid: usize,
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
-            pub file_key: usize,
-        }
-
-        // ── Event type 67: Read (FileIo_ReadWrite) ───────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 67, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct ReadV2 {
+        // ── Template: FileIo_ReadWrite ─────────────────────────
+        template FileIo_ReadWrite {
             #[etw_prop(name = "Offset")]
             pub offset: u64,
             #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
@@ -154,32 +71,8 @@ etw_provider! {
             pub io_flags: u32,
         }
 
-        // ── Event type 68: Write (FileIo_ReadWrite) ──────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 68, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct WriteV2 {
-            #[etw_prop(name = "Offset")]
-            pub offset: u64,
-            #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
-            pub irp_ptr: usize,
-            #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
-            pub ttid: usize,
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
-            pub file_key: usize,
-            #[etw_prop(name = "IoSize")]
-            pub io_size: u32,
-            #[etw_prop(name = "IoFlags")]
-            pub io_flags: u32,
-        }
-
-        // ── Event type 69: SetInfo (FileIo_Info) ─────────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 69, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct SetInfoV2 {
+        // ── Template: FileIo_Info ──────────────────────────────
+        template FileIo_Info {
             #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
             pub irp_ptr: usize,
             #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
@@ -194,125 +87,8 @@ etw_provider! {
             pub info_class: u32,
         }
 
-        // ── Event type 70: Delete (FileIo_Info) ──────────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 70, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct DeleteV2 {
-            #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
-            pub irp_ptr: usize,
-            #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
-            pub ttid: usize,
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
-            pub file_key: usize,
-            #[etw_prop(name = "ExtraInfo", parse_as = ferrisetw::parser::Pointer)]
-            pub extra_info: usize,
-            #[etw_prop(name = "InfoClass")]
-            pub info_class: u32,
-        }
-
-        // ── Event type 71: Rename (FileIo_Info) ──────────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 71, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct RenameV2 {
-            #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
-            pub irp_ptr: usize,
-            #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
-            pub ttid: usize,
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
-            pub file_key: usize,
-            #[etw_prop(name = "ExtraInfo", parse_as = ferrisetw::parser::Pointer)]
-            pub extra_info: usize,
-            #[etw_prop(name = "InfoClass")]
-            pub info_class: u32,
-        }
-
-        // ── Event type 72: DirEnum (FileIo_DirEnum) ──────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 72, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct DirEnumV2 {
-            #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
-            pub irp_ptr: usize,
-            #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
-            pub ttid: usize,
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
-            pub file_key: usize,
-            #[etw_prop(name = "Length")]
-            pub length: u32,
-            #[etw_prop(name = "InfoClass")]
-            pub info_class: u32,
-            #[etw_prop(name = "FileIndex")]
-            pub file_index: u32,
-            #[etw_prop(name = "FileName")]
-            pub file_name: String,
-        }
-
-        // ── Event type 73: Flush (FileIo_SimpleOp) ───────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 73, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct FlushV2 {
-            #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
-            pub irp_ptr: usize,
-            #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
-            pub ttid: usize,
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
-            pub file_key: usize,
-        }
-
-        // ── Event type 74: QueryInfo (FileIo_Info) ───────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 74, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct QueryInfoV2 {
-            #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
-            pub irp_ptr: usize,
-            #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
-            pub ttid: usize,
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
-            pub file_key: usize,
-            #[etw_prop(name = "ExtraInfo", parse_as = ferrisetw::parser::Pointer)]
-            pub extra_info: usize,
-            #[etw_prop(name = "InfoClass")]
-            pub info_class: u32,
-        }
-
-        // ── Event type 75: FSControl (FileIo_Info) ───────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 75, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct FSControlV2 {
-            #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
-            pub irp_ptr: usize,
-            #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
-            pub ttid: usize,
-            #[etw_prop(name = "FileObject", parse_as = ferrisetw::parser::Pointer)]
-            pub file_object: usize,
-            #[etw_prop(name = "FileKey", parse_as = ferrisetw::parser::Pointer)]
-            pub file_key: usize,
-            #[etw_prop(name = "ExtraInfo", parse_as = ferrisetw::parser::Pointer)]
-            pub extra_info: usize,
-            #[etw_prop(name = "InfoClass")]
-            pub info_class: u32,
-        }
-
-        // ── Event type 76: OperationEnd (FileIo_OpEnd) ───────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO
-        #[etw_event(id = 76, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO)]
-        pub struct OperationEndV2 {
+        // ── Template: FileIo_OpEnd ─────────────────────────────
+        template FileIo_OpEnd {
             #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
             pub irp_ptr: usize,
             #[etw_prop(name = "ExtraInfo", parse_as = ferrisetw::parser::Pointer)]
@@ -321,11 +97,8 @@ etw_provider! {
             pub nt_status: u32,
         }
 
-        // ── Event type 77: DirNotify (FileIo_DirEnum) ────────
-        // Exists in V2 only
-        // EVENT_TRACE_FLAG_FILE_IO_INIT
-        #[etw_event(id = 77, version = 2, enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
-        pub struct DirNotifyV2 {
+        // ── Template: FileIo_DirEnum ───────────────────────────
+        template FileIo_DirEnum {
             #[etw_prop(name = "IrpPtr", parse_as = ferrisetw::parser::Pointer)]
             pub irp_ptr: usize,
             #[etw_prop(name = "TTID", parse_as = ferrisetw::parser::Pointer)]
@@ -343,5 +116,85 @@ etw_provider! {
             #[etw_prop(name = "FileName")]
             pub file_name: String,
         }
+
+        // ── Events ─────────────────────────────────────────────
+
+        // Event type 0: Name (FileIo_Name)
+        #[etw_event(id = 0, version = 0, name = "NameV0", enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
+        FileIo_Name,
+        #[etw_event(id = 0, version = 1, name = "NameV1", enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
+        FileIo_Name,
+        #[etw_event(id = 0, version = 2, name = "NameV2", enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
+        FileIo_Name,
+
+        // Event type 32: FileCreate (FileIo_Name)
+        #[etw_event(id = 32, version = 1, name = "FileCreateV1", enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
+        FileIo_Name,
+        #[etw_event(id = 32, version = 2, name = "FileCreateV2", enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
+        FileIo_Name,
+
+        // Event type 35: FileDelete (FileIo_Name)
+        #[etw_event(id = 35, version = 2, name = "FileDeleteV2", enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
+        FileIo_Name,
+
+        // Event type 36: FileRundown (FileIo_Name)
+        #[etw_event(id = 36, version = 2, name = "FileRundownV2", enable_flag = flags::EVENT_TRACE_FLAG_DISK_FILE_IO)]
+        FileIo_Name,
+
+        // Event type 64: Create (FileIo_Create)
+        #[etw_event(id = 64, version = 2, name = "CreateV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_Create,
+
+        // Event type 65: Cleanup (FileIo_SimpleOp)
+        #[etw_event(id = 65, version = 2, name = "CleanupV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_SimpleOp,
+
+        // Event type 66: Close (FileIo_SimpleOp)
+        #[etw_event(id = 66, version = 2, name = "CloseV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_SimpleOp,
+
+        // Event type 67: Read (FileIo_ReadWrite)
+        #[etw_event(id = 67, version = 2, name = "ReadV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_ReadWrite,
+
+        // Event type 68: Write (FileIo_ReadWrite)
+        #[etw_event(id = 68, version = 2, name = "WriteV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_ReadWrite,
+
+        // Event type 69: SetInfo (FileIo_Info)
+        #[etw_event(id = 69, version = 2, name = "SetInfoV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_Info,
+
+        // Event type 70: Delete (FileIo_Info)
+        #[etw_event(id = 70, version = 2, name = "DeleteV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_Info,
+
+        // Event type 71: Rename (FileIo_Info)
+        #[etw_event(id = 71, version = 2, name = "RenameV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_Info,
+
+        // Event type 72: DirEnum (FileIo_DirEnum)
+        #[etw_event(id = 72, version = 2, name = "DirEnumV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_DirEnum,
+
+        // Event type 73: Flush (FileIo_SimpleOp)
+        #[etw_event(id = 73, version = 2, name = "FlushV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_SimpleOp,
+
+        // Event type 74: QueryInfo (FileIo_Info)
+        #[etw_event(id = 74, version = 2, name = "QueryInfoV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_Info,
+
+        // Event type 75: FSControl (FileIo_Info)
+        #[etw_event(id = 75, version = 2, name = "FSControlV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_Info,
+
+        // Event type 76: OperationEnd (FileIo_OpEnd)
+        #[etw_event(id = 76, version = 2, name = "OperationEndV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO)]
+        FileIo_OpEnd,
+
+        // Event type 77: DirNotify (FileIo_DirEnum)
+        #[etw_event(id = 77, version = 2, name = "DirNotifyV2", enable_flag = flags::EVENT_TRACE_FLAG_FILE_IO_INIT)]
+        FileIo_DirEnum,
     }
 }
