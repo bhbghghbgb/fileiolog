@@ -6,7 +6,6 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
-    spanned::Spanned,
 };
 
 use crate::{
@@ -43,8 +42,7 @@ struct EtwVariant {
     skip: bool,
     attrs: Vec<Attribute>,
     struct_vis: Visibility,
-    event_name: Ident,
-    template_name: Option<Ident>,
+    struct_name: Ident,
     fields: Punctuated<Field, Token![,]>,
 }
 
@@ -114,138 +112,75 @@ impl Parse for EtwProviderInput {
             syn::braced!(fields_content in content);
             let fields = fields_content.parse_terminated(Field::parse_named, Token![,])?;
 
-            let mut etw_event_attrs: Vec<Attribute> = Vec::new();
+            let mut event_attr: Option<Attribute> = None;
             let mut other_attrs: Vec<Attribute> = Vec::new();
 
             for attr in attrs {
                 if attr.path().is_ident("etw_event") {
-                    etw_event_attrs.push(attr);
+                    if event_attr.is_some() {
+                        return Err(Error::new_spanned(
+                            &attr,
+                            format!(
+                                "struct `{struct_name}` has multiple #[etw_event(...)] attributes; expected exactly one"
+                            ),
+                        ));
+                    }
+                    event_attr = Some(attr);
                 } else {
                     other_attrs.push(attr);
                 }
             }
 
-            if etw_event_attrs.is_empty() {
-                return Err(Error::new_spanned(
+            let event_attr = event_attr.ok_or_else(|| {
+                Error::new_spanned(
                     &struct_name,
                     format!(
                         "struct `{struct_name}` is missing required #[etw_event(id = ...)] attribute"
                     ),
-                ));
+                )
+            })?;
+
+            let args: EtwEventArgs = parse_attr_meta(&event_attr)?;
+
+            match kind {
+                EtwProviderKind::User => {
+                    if args.enable_flag.is_some() {
+                        return Err(Error::new_spanned(
+                            &struct_name,
+                            "`enable_flag` is only valid on events in kernel `etw_provider!` \
+                             blocks (use `keyword_mask` for user providers)",
+                        ));
+                    }
+                }
+                EtwProviderKind::Kernel => {
+                    if args.keyword_mask.is_some() {
+                        return Err(Error::new_spanned(
+                            &struct_name,
+                            "`keyword_mask` is only valid on events in user `etw_provider!` \
+                             blocks (use `enable_flag` for kernel providers)",
+                        ));
+                    }
+                    if !has_provider_flag && args.enable_flag.is_none() {
+                        return Err(Error::new_spanned(
+                            &struct_name,
+                            "`enable_flag` is required on each event when no provider-wide \
+                             `enable_flag` is set on `#[etw_provider(...)]`",
+                        ));
+                    }
+                }
             }
 
-            let has_name = etw_event_attrs.iter().any(|attr| {
-                parse_attr_meta::<EtwEventArgs>(attr)
-                    .ok()
-                    .and_then(|a| a.name)
-                    .is_some()
+            variants.push(EtwVariant {
+                event_id: args.id,
+                event_version: args.version,
+                keyword_mask: args.keyword_mask,
+                enable_flag: args.enable_flag,
+                skip: args.skip,
+                attrs: other_attrs,
+                struct_vis,
+                struct_name,
+                fields,
             });
-
-            if has_name {
-                for attr in &etw_event_attrs {
-                    let args: EtwEventArgs = parse_attr_meta(attr)?;
-                    let event_name_str = args.name.as_deref().ok_or_else(|| {
-                        Error::new_spanned(
-                            attr,
-                            "all #[etw_event] attributes on a template struct must have a `name` field",
-                        )
-                    })?;
-                    let event_name = Ident::new(event_name_str, attr.span());
-
-                    match kind {
-                        EtwProviderKind::User => {
-                            if args.enable_flag.is_some() {
-                                return Err(Error::new_spanned(
-                                    &struct_name,
-                                    "`enable_flag` is only valid on events in kernel `etw_provider!` \
-                                     blocks (use `keyword_mask` for user providers)",
-                                ));
-                            }
-                        }
-                        EtwProviderKind::Kernel => {
-                            if args.keyword_mask.is_some() {
-                                return Err(Error::new_spanned(
-                                    &struct_name,
-                                    "`keyword_mask` is only valid on events in user `etw_provider!` \
-                                     blocks (use `enable_flag` for kernel providers)",
-                                ));
-                            }
-                            if !has_provider_flag && args.enable_flag.is_none() {
-                                return Err(Error::new_spanned(
-                                    &struct_name,
-                                    "`enable_flag` is required on each event when no provider-wide \
-                                     `enable_flag` is set on `#[etw_provider(...)]`",
-                                ));
-                            }
-                        }
-                    }
-
-                    variants.push(EtwVariant {
-                        event_id: args.id,
-                        event_version: args.version,
-                        keyword_mask: args.keyword_mask,
-                        enable_flag: args.enable_flag,
-                        skip: args.skip,
-                        attrs: other_attrs.clone(),
-                        struct_vis: struct_vis.clone(),
-                        event_name,
-                        template_name: Some(struct_name.clone()),
-                        fields: fields.clone(),
-                    });
-                }
-            } else {
-                if etw_event_attrs.len() != 1 {
-                    return Err(Error::new_spanned(
-                        &struct_name,
-                        format!(
-                            "struct `{struct_name}` has multiple #[etw_event(...)] attributes without `name`; use `name = \"...\"` for template syntax",
-                        ),
-                    ));
-                }
-
-                let args: EtwEventArgs = parse_attr_meta(&etw_event_attrs[0])?;
-
-                match kind {
-                    EtwProviderKind::User => {
-                        if args.enable_flag.is_some() {
-                            return Err(Error::new_spanned(
-                                &struct_name,
-                                "`enable_flag` is only valid on events in kernel `etw_provider!` \
-                                 blocks (use `keyword_mask` for user providers)",
-                            ));
-                        }
-                    }
-                    EtwProviderKind::Kernel => {
-                        if args.keyword_mask.is_some() {
-                            return Err(Error::new_spanned(
-                                &struct_name,
-                                "`keyword_mask` is only valid on events in user `etw_provider!` \
-                                 blocks (use `enable_flag` for kernel providers)",
-                            ));
-                        }
-                        if !has_provider_flag && args.enable_flag.is_none() {
-                            return Err(Error::new_spanned(
-                                &struct_name,
-                                "`enable_flag` is required on each event when no provider-wide \
-                                 `enable_flag` is set on `#[etw_provider(...)]`",
-                            ));
-                        }
-                    }
-                }
-
-                variants.push(EtwVariant {
-                    event_id: args.id,
-                    event_version: args.version,
-                    keyword_mask: args.keyword_mask,
-                    enable_flag: args.enable_flag,
-                    skip: args.skip,
-                    attrs: other_attrs,
-                    struct_vis,
-                    event_name: struct_name,
-                    template_name: None,
-                    fields,
-                });
-            }
 
             if !content.is_empty() {
                 let _ = content.parse::<Token![,]>();
@@ -276,7 +211,7 @@ impl EtwProviderInput {
                     None => "any (no version)".to_string(),
                 };
                 return Err(Error::new_spanned(
-                    &v.event_name,
+                    &v.struct_name,
                     format!(
                         "duplicate (id, version) pair ({}, {}) in etw_provider! block",
                         v.event_id, ver_display
@@ -296,7 +231,7 @@ impl EtwProviderInput {
             .map(|v| {
                 let attrs = &v.attrs;
                 let vis = &v.struct_vis;
-                let name = &v.event_name;
+                let name = &v.struct_name;
                 let filtered_fields: Vec<_> = v
                     .fields
                     .iter()
@@ -306,46 +241,11 @@ impl EtwProviderInput {
                             .any(|a| a.path().is_ident("etw_prop") && has_skip_in_etw_prop(a))
                     })
                     .collect();
-
-                if let Some(template_name) = &v.template_name {
-                    let field_idents: Vec<Ident> = filtered_fields
-                        .iter()
-                        .map(|f| f.ident.as_ref().expect("named field").clone())
-                        .collect();
-
-                    let debug_fields = field_idents.iter().map(|field_ident| {
-                        quote! {
-                            .field(stringify!(#field_ident), &self.#field_ident)
-                        }
-                    });
-
-                    quote! {
-                        #(#attrs)*
-                        #[derive(Clone, ::fileiolog::etw::EtwEvent)]
-                        #vis struct #name {
-                            #(#filtered_fields),*
-                        }
-
-                        impl ::core::fmt::Debug for #name {
-                            fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                                let name = format!("{}({})", stringify!(#name), Self::TEMPLATE_NAME);
-                                f.debug_struct(&name)
-                                    #(#debug_fields)*
-                                    .finish()
-                            }
-                        }
-
-                        impl #name {
-                            pub const TEMPLATE_NAME: &'static str = stringify!(#template_name);
-                        }
-                    }
-                } else {
-                    quote! {
-                        #(#attrs)*
-                        #[derive(Debug, Clone, ::fileiolog::etw::EtwEvent)]
-                        #vis struct #name {
-                            #(#filtered_fields),*
-                        }
+                quote! {
+                    #(#attrs)*
+                    #[derive(Debug, Clone, ::fileiolog::etw::EtwEvent)]
+                    #vis struct #name {
+                        #(#filtered_fields),*
                     }
                 }
             })
@@ -354,7 +254,7 @@ impl EtwProviderInput {
         let enum_variants: Vec<_> = non_skipped
             .iter()
             .map(|v| {
-                let name = &v.event_name;
+                let name = &v.struct_name;
                 quote! { #name(#name) }
             })
             .collect();
@@ -365,7 +265,7 @@ impl EtwProviderInput {
             .map(|v| {
                 let id = v.event_id;
                 let ver = v.event_version.unwrap();
-                let name = &v.event_name;
+                let name = &v.struct_name;
                 quote! {
                     (#id, #ver) => {
                         Some(Self::#name(
@@ -381,7 +281,7 @@ impl EtwProviderInput {
             .filter(|v| v.event_version.is_none())
             .map(|v| {
                 let id = v.event_id;
-                let name = &v.event_name;
+                let name = &v.struct_name;
                 quote! {
                     (#id, _) => {
                         Some(Self::#name(
