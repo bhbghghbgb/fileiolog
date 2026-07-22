@@ -47,6 +47,7 @@ pub(crate) struct EtwPropArgs {
 
 #[derive(Debug, FromMeta)]
 pub(crate) struct EtwEventArgs {
+    pub(crate) name: Option<String>,
     pub(crate) id: u16,
     pub(crate) version: Option<u8>,
     pub(crate) keyword_mask: Option<syn::Expr>,
