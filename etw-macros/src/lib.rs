@@ -49,7 +49,6 @@ pub(crate) struct EtwPropArgs {
 pub(crate) struct EtwEventArgs {
     pub(crate) id: u16,
     pub(crate) version: Option<u8>,
-    pub(crate) name: String,
     pub(crate) keyword_mask: Option<syn::Expr>,
     pub(crate) enable_flag: Option<syn::Expr>,
     #[darling(default)]
