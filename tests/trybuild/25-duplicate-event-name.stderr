@@ -1,0 +1,5 @@
+error: duplicate event struct name `SharedName` in etw_provider! block
+  --> tests/trybuild/25-duplicate-event-name.rs:10:20
+   |
+10 |         pub struct TemplateA {
+   |                    ^^^^^^^^^

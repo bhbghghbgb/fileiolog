@@ -24,4 +24,6 @@ fn trybuild_tests() {
     t.compile_fail("tests/trybuild/21-kernel-no-flag-error.rs");
     t.compile_fail("tests/trybuild/22-kernel-provider-keyword-mask-error.rs");
     t.compile_fail("tests/trybuild/23-user-provider-enable-flag-error.rs");
+    t.pass("tests/trybuild/24-multi-event-names.rs");
+    t.compile_fail("tests/trybuild/25-duplicate-event-name.rs");
 }

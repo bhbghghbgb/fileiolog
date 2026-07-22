@@ -1,5 +1,5 @@
-error: struct `TwoEvents` has multiple #[etw_event(...)] attributes; expected exactly one
- --> tests/trybuild/05-multiple-event-attrs.rs:7:9
+error: struct `TwoEvents` has multiple #[etw_event] attributes without an explicit `name` on each; when using multiple #[etw_event] attributes on a single template struct, all must specify `name = "..."` to avoid duplicate struct names
+ --> tests/trybuild/05-multiple-event-attrs.rs:8:20
   |
-7 |         #[etw_event(id = 2, version = 0)]
-  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 |         pub struct TwoEvents {
+  |                    ^^^^^^^^^
