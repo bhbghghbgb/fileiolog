@@ -11,8 +11,9 @@ The key changes:
 1. Each expanded struct now has a `TEMPLATE_NAME` constant and a custom `Debug` impl
    that shows `EventName(TemplateName) { ... }`.
 2. A struct can have **multiple** `#[etw_event(...)]` attributes (each must specify `name`).
-3. A struct with a **single** `#[etw_event(...)]` does not need `name` — it defaults to the
-   struct name.
+3. A struct with a **single** `#[etw_event(...)]` should also specify `name` explicitly
+   (the macro allows omitting it, defaulting to the struct name, but provider source code
+   should always provide it).
 
 ## Background: Kernel vs User Tracing
 
@@ -31,8 +32,9 @@ For example, in the FileIO kernel provider:
 - Event type 65 (`Cleanup`), 66 (`Close`), 73 (`Flush`) all use the `FileIo_SimpleOp`
   class — same fields (`IrpPtr`, `TTID`, `FileObject`, `FileKey`).
 
-**Template name for kernel tracing:** derived from the MOF class name (e.g., `FileIo_Name`
-→ `FileIoNameV0`, `FileIo_SimpleOp` → `FileIoSimpleOpV0`).
+**Template name for kernel tracing:** derived from the MOF class name with version suffix.
+E.g., `FileIo_Name` V0 → `FileIoNameV0`, `FileIo_Name` V1 → `FileIoNameV1`. These are
+different MOF classes even when the fields are the same.
 
 ### User Tracing (XML Manifest Templates)
 
@@ -47,9 +49,9 @@ For example, in the `Microsoft-Windows-Kernel-File` manifest:
   `QueryInformation` (id=22), `FSCTL` (id=23) all use template `SetInformationArgs`
   (v0) or `SetInformationArgs_V1` (v1).
 
-**Template name for user tracing:** derived from the XML template `tid` attribute
-(e.g., `NameCreateArgs` → `NameCreateArgs`, `CleanupArgs` → `CleanupArgsV0`,
-`CreateArgs_V1` → `CreateArgsV1`).
+**Template name for user tracing:** derived from the XML template `tid` attribute with
+version suffix. E.g., `NameCreateArgs` → `NameCreateArgs`, `CleanupArgs` → `CleanupArgsV0`,
+`CreateArgs_V1` → `CreateArgsV1`.
 
 ### Key Difference
 
@@ -58,7 +60,7 @@ For example, in the `Microsoft-Windows-Kernel-File` manifest:
 | Template source | MOF class name | XML `<template tid="...">` |
 | Multiple event IDs per template | Yes (e.g., 0, 32, 35, 36 all → `FileIo_Name`) | Yes (e.g., 10, 11 both → `NameCreateArgs`) |
 | Different fields per version | Yes (V0, V1, V2 classes differ) | Yes (separate templates per version) |
-| Template naming convention | `{Provider}_{Class}{Version}` | `{TemplateName}{Version}` (V1 suffix omitted if no V0) |
+| Template naming convention | `{Provider}_{Class}{Version}` | `{TemplateName}{Version}` |
 
 ---
 
@@ -77,10 +79,11 @@ fields. These are your templates.
 
 ### Step 2: Determine Template Struct Name
 
-The template struct name is derived from:
-- **Kernel:** The MOF class name, with version suffix. E.g., `FileIo_Name` → `FileIoNameV0`,
-  `FileIo_Name` (V1) → `FileIoNameV1`.
-- **User:** The XML template `tid`, with version suffix. E.g., `NameCreateArgs` → `NameCreateArgs`,
+The template struct name is derived from the type/template name with version suffix:
+
+- **Kernel:** The MOF class name with version. E.g., `FileIo_Name` V0 → `FileIoNameV0`,
+  `FileIo_Name` V1 → `FileIoNameV1`, `FileIo_SimpleOp` V2 → `FileIoSimpleOpV2`.
+- **User:** The XML template `tid` with version. E.g., `NameCreateArgs` → `NameCreateArgs`,
   `CleanupArgs_V1` → `CleanupArgsV1`.
 
 ### Step 3: Determine Event Struct Names
@@ -88,6 +91,9 @@ The template struct name is derived from:
 For each event in the template group, the event struct name is derived from:
 - The event's descriptive name (from the manifest's `EventTypeName` or `symbol`)
 - Plus the version suffix
+
+Always specify `name` explicitly on every `#[etw_event(...)]` — do not rely on the
+default.
 
 E.g., for kernel FileIO:
 - Template `FileIoNameV0` contains events `NameV0` (id=0), `FileCreateV1` (id=32),
@@ -261,7 +267,7 @@ etw_provider! {
 
 ### Example 3: Single Event (No Template Sharing)
 
-When only one event uses a template, you can omit `name` and it defaults to the struct name.
+Even when a template has only one event, always specify `name` explicitly.
 
 #### Before (old syntax)
 ```rust
@@ -275,10 +281,10 @@ pub struct CreateV0 {
 }
 ```
 
-#### After (new syntax — name omitted, defaults to struct name)
+#### After (new syntax — always explicit name)
 ```rust
-#[etw_event(id = 12, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_CREATE)]
-pub struct CreateV0 {
+#[etw_event(name = "CreateV0", id = 12, version = 0, keyword_mask = masks::KERNEL_FILE_KEYWORD_FILEIO | masks::KERNEL_FILE_KEYWORD_CREATE)]
+pub struct CreateArgsV0 {
     #[etw_prop(name = "Irp", parse_as = ferrisetw::parser::Pointer)]
     pub irp: usize,
     #[etw_prop(name = "ThreadId", parse_as = ferrisetw::parser::Pointer)]
@@ -287,7 +293,8 @@ pub struct CreateV0 {
 }
 ```
 
-The expanded struct is `CreateV0` with `TEMPLATE_NAME = "CreateV0"`.
+The template name is `CreateArgsV0` (from the MOF class), and the event name is `CreateV0`.
+The expanded struct is `CreateV0` with `TEMPLATE_NAME = "CreateArgsV0"`.
 
 ---
 
@@ -352,7 +359,9 @@ Event struct name = task/symbol name + version suffix.
 
 ## Rules
 
-1. **Single `etw_event` attr:** `name` is optional. Defaults to the struct name.
+1. **Always specify `name` on `etw_event`:** Provider source code should always provide
+   `name = "..."` on every `#[etw_event(...)]` attribute. The macro allows omitting it
+   (defaulting to the struct name), but this is not the intended usage for providers.
 2. **Multiple `etw_event` attrs:** All must specify `name = "..."`. The macro rejects
    multiple `etw_event` attrs where any lacks `name`.
 3. **Duplicate names:** The macro rejects two events with the same `name` in the same
@@ -373,7 +382,8 @@ Event struct name = task/symbol name + version suffix.
    a. Determine the template struct name (see naming conventions above).
    b. Create a single struct with the shared fields.
    c. Add `#[etw_event(name = "...", ...)]` for each event, with explicit `name`.
-4. For events with unique fields (no sharing), keep as single struct with optional `name`.
+4. For events with unique fields (no sharing), still wrap in a template struct and
+   always specify `name` explicitly.
 5. Verify all events compile and the Debug output includes the template name.
 6. Update any code that references the old struct names (they should remain the same
    unless you change the `name` values).
