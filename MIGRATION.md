@@ -15,6 +15,9 @@ The key changes:
    (the macro allows omitting it, defaulting to the struct name, but provider source code
    should always provide it).
 
+**Important:** The `name` on each `#[etw_event(...)]` preserves the existing event struct
+names. Migration does NOT rename any events — it only wraps them in a template struct.
+
 ## Background: Kernel vs User Tracing
 
 ETW has two fundamentally different tracing models, and this affects how you think about
@@ -26,6 +29,22 @@ Kernel tracing uses **MOF (Managed Object Format) classes**. Each class defines 
 type" with a set of fields. Different event IDs can share the same class (and therefore
 the same fields).
 
+Manifest files: `etw_manifests/fileio-mof/` — one `.md` file per class.
+
+The version of a class comes from its parent. Parent classes have `EventVersion(x)` in
+their MOF definition:
+```
+[Guid("{90cbdc39-...}"), EventVersion(0)]
+class FileIo_V0 : MSNT_SystemTrace { };
+```
+Child classes inherit the version:
+```
+[EventType{0, 32}, EventTypeName{"Name", "FileCreate"}]
+class FileIo_V1_Name : FileIo_V1 { ... }
+```
+Here `FileIo_V1_Name` extends `FileIo_V1` (which has `EventVersion(1)`), so
+it's version 1. Meanwhile `FileIo_V0_Name : FileIo_V0` is version 0.
+
 For example, in the FileIO kernel provider:
 - Event type 0 (`Name`), 32 (`FileCreate`), 35 (`FileDelete`), 36 (`FileRundown`) all use
   the `FileIo_Name` class — they have the same fields (`FileObject`, `FileName`).
@@ -34,20 +53,30 @@ For example, in the FileIO kernel provider:
 
 **Template name for kernel tracing:** derived from the MOF class name with version suffix.
 E.g., `FileIo_Name` V0 → `FileIoNameV0`, `FileIo_Name` V1 → `FileIoNameV1`. These are
-different MOF classes even when the fields are the same.
+different MOF classes even when the fields are the same. **Templates are generally NOT
+shared between versions** — `FileIo_V0_Name` and `FileIo_V1_Name` are separate classes
+that happen to have the same fields; they still get separate template structs.
 
 ### User Tracing (XML Manifest Templates)
 
 User tracing uses **XML manifests** with `<templates>`. Each template has a `tid` attribute
 and defines a set of data fields. Different events reference templates by name.
 
-For example, in the `Microsoft-Windows-Kernel-File` manifest:
-- Events `NameCreate` (id=10) and `NameDelete` (id=11) both use template `NameCreateArgs`.
-- Events `Cleanup` (id=13), `Close` (id=14), `Flush` (id=21) all use template
-  `CleanupArgs` (v0) or `CleanupArgs_V1` (v1).
-- Events `SetInformation` (id=17), `SetDelete` (id=18), `Rename` (id=19),
-  `QueryInformation` (id=22), `FSCTL` (id=23) all use template `SetInformationArgs`
-  (v0) or `SetInformationArgs_V1` (v1).
+Manifest files: `etw_manifests/Microsoft-Windows-Kernel-File.xml`,
+`etw_manifests/Microsoft-Windows-Kernel-Process.xml`
+
+The version comes from the `version` attribute on each `<event>` tag (NOT from the
+template). Templates are generally NOT shared between versions — always verify that two
+events with different versions actually use templates with identical fields before grouping
+them.
+
+For example, in the `Microsoft-Windows-Kernel-File.xml` manifest:
+- Events `NameCreate` (id=10, version=0) and `NameDelete` (id=11, version=0) both use
+  template `NameCreateArgs` — same version, same template. Group them.
+- Events `Cleanup` (id=13, version=0) and `Close` (id=14, version=0) both use template
+  `CleanupArgs` — same version, same template. Group them.
+- Events `Cleanup` (id=13, version=1) uses template `CleanupArgs_V1` — different version,
+  different template (different fields). Separate template struct.
 
 **Template name for user tracing:** derived from the XML template `tid` attribute with
 version suffix. E.g., `NameCreateArgs` → `NameCreateArgs`, `CleanupArgs` → `CleanupArgsV0`,
@@ -71,34 +100,118 @@ version suffix. E.g., `NameCreateArgs` → `NameCreateArgs`, `CleanupArgs` → `
 Look at the existing provider file and identify groups of events that share the same
 fields. These are your templates.
 
-**For kernel tracing:** Group events by MOF class. The manifest file
-(`etw_manifests/fileio-mof/`) shows which event types share a class.
+**For kernel tracing:** Group events by MOF class. The manifest files in
+`etw_manifests/fileio-mof/` (one `.md` file per class) show which event types share a
+class. The class name is in the `## Syntax` block, e.g.:
+```
+[EventType{0, 32}, EventTypeName{"Name", "FileCreate"}]
+class FileIo_V1_Name : FileIo_V1
+```
 
-**For user tracing:** Group events by XML template `tid`. The manifest XML
-(`etw_manifests/Microsoft-Windows-Kernel-File.xml`) shows the `<templates>` section.
+**For user tracing:** Group events by XML template `tid`. The manifest XML files in
+`etw_manifests/` (e.g. `Microsoft-Windows-Kernel-File.xml`) show the `<templates>` and
+`<events>` sections. Each `<event>` tag has a `template` attribute referencing a `<template tid="...">`.
 
-### Step 2: Determine Template Struct Name
+### Step 2: Determine Versions
+
+#### Kernel Tracing (MOF Classes)
+
+Versions come from the parent class hierarchy. Each parent class has an `EventVersion(x)`
+attribute. Child classes inherit the version from their parent.
+
+File paths: `etw_manifests/fileio-mof/`
+
+1. Find the parent class file (e.g. `fileio-v0.md`, `fileio-v1.md`). The `EventVersion`
+   is in the `## Syntax` block:
+   ```
+   [Guid("{90cbdc39-...}"), EventVersion(0)]
+   class FileIo_V0 : MSNT_SystemTrace
+   ```
+   This means `FileIo_V0` is version 0.
+
+2. Find the child class files that extend from it. The parent is specified in the
+   `class ... : ParentClass` line:
+   ```
+   class FileIo_V0_Name : FileIo_V0
+   ```
+   This means `FileIo_V0_Name` is version 0 (inherited from `FileIo_V0`).
+
+3. The template struct name includes the version from the parent: `FileIo_V0_Name` →
+   `FileIoNameV0`.
+
+**Important:** `FileIo_V0_Name` and `FileIo_V1_Name` are different MOF classes even
+though they have the same fields. They belong to different versions (V0 vs V1). Each gets
+its own template struct. Templates are generally NOT shared between versions — this applies
+to both MOF classes and XML templates. Always verify that two events with different versions
+actually use templates with identical fields before grouping them.
+
+#### User Tracing (XML Manifest Templates)
+
+Versions come from the `version` attribute on each `<event>` tag.
+
+File paths: `etw_manifests/Microsoft-Windows-Kernel-File.xml`,
+`etw_manifests/Microsoft-Windows-Kernel-Process.xml`
+
+1. Look at the `<events>` section. Each `<event>` has `version="..."`:
+   ```xml
+   <event value="12" symbol="Create" version="0" ... template="CreateArgs" />
+   <event value="12" symbol="Create_V1" version="1" ... template="CreateArgs_V1" />
+   ```
+
+2. The version is on the event, NOT on the template. Different events with the same
+   `version` value and same `template` reference can share a template struct.
+
+3. **Templates are generally NOT shared between versions.** Always verify that two events
+   with different `version` values actually reference templates with the same fields before
+   grouping them. Check the `<templates>` section to compare field lists.
+
+   Example: `CleanupArgs` (v0) has `Irp, ThreadId, FileObject, FileKey` while
+   `CleanupArgs_V1` (v1) has `Irp, FileObject, FileKey, IssuingThreadId` — different
+   fields, so they are separate template structs (`CleanupArgsV0` and `CleanupArgsV1`).
+
+   Counter-example: events 13 (Cleanup), 14 (Close), 21 (Flush) all reference
+   `CleanupArgs` with `version="0"` — same template, same fields. Group them.
+
+### Step 3: Determine Template Struct Name
 
 The template struct name is derived from the type/template name with version suffix:
 
-- **Kernel:** The MOF class name with version. E.g., `FileIo_Name` V0 → `FileIoNameV0`,
-  `FileIo_Name` V1 → `FileIoNameV1`, `FileIo_SimpleOp` V2 → `FileIoSimpleOpV2`.
-- **User:** The XML template `tid` with version. E.g., `NameCreateArgs` → `NameCreateArgs`,
-  `CleanupArgs_V1` → `CleanupArgsV1`.
+- **Kernel:** The MOF class name with version from the parent class. E.g.:
+  - `FileIo_V0_Name` (parent `FileIo_V0`, EventVersion(0)) → `FileIoNameV0`
+  - `FileIo_V1_Name` (parent `FileIo_V1`, EventVersion(1)) → `FileIoNameV1`
+  - `FileIo_SimpleOp` (check which parent it extends) → `FileIoSimpleOpV0` or `V1` etc.
+- **User:** The XML template `tid` with version from the event's `version` attribute. E.g.:
+  - `NameCreateArgs` with event `version="0"` → `NameCreateArgs` (no V suffix needed if
+    there's only one version)
+  - `CreateArgs` with event `version="0"` → `CreateArgsV0`
+  - `CreateArgs_V1` with event `version="1"` → `CreateArgsV1`
+  - `CleanupArgs` with event `version="0"` → `CleanupArgsV0`
+  - `CleanupArgs_V1` with event `version="1"` → `CleanupArgsV1`
 
-### Step 3: Determine Event Struct Names
+### Step 4: Determine Event Struct Names
 
-For each event in the template group, the event struct name is derived from:
-- The event's descriptive name (from the manifest's `EventTypeName` or `symbol`)
-- Plus the version suffix
+**The event struct names in the existing provider code are already correct.** The migration
+does NOT change them — it only wraps them in a template struct. The `name` value on each
+`#[etw_event(...)]` should match the existing struct name exactly.
+
+For reference, the event struct name is derived from:
+- The event's descriptive name (from the manifest's `EventTypeName` for MOF or `symbol`
+  for XML)
+- Plus the version suffix (from the event's version)
 
 Always specify `name` explicitly on every `#[etw_event(...)]` — do not rely on the
 default.
 
-E.g., for kernel FileIO:
+E.g., for kernel FileIO V0:
 - Template `FileIoNameV0` contains events `NameV0` (id=0), `FileCreateV1` (id=32),
   `FileDeleteV2` (id=35), `FileRundownV2` (id=36)
 - Template `FileIoCreateV2` contains event `CreateV2` (id=64)
+
+E.g., for user tracing Microsoft-Windows-Kernel-File:
+- Template `NameCreateArgs` (version=0) contains events `NameCreateV0` (id=10),
+  `NameDeleteV0` (id=11)
+- Template `CreateArgsV0` (version=0) contains event `CreateV0` (id=12)
+- Template `CreateArgsV1` (version=1) contains event `CreateV1` (id=12)
 
 ---
 
@@ -377,13 +490,15 @@ Event struct name = task/symbol name + version suffix.
 ## Checklist for Migrating Each Provider File
 
 1. Read the corresponding manifest (MOF or XML) to identify which events share templates.
-2. Group events by template (same fields = same template).
+   Verify that events grouped together actually have the same fields.
+2. Group events by template (same fields, same version = same template).
 3. For each group:
    a. Determine the template struct name (see naming conventions above).
-   b. Create a single struct with the shared fields.
+   b. Create a single struct with the shared fields (this is the template).
    c. Add `#[etw_event(name = "...", ...)]` for each event, with explicit `name`.
+      The `name` value must match the existing event struct name exactly.
 4. For events with unique fields (no sharing), still wrap in a template struct and
    always specify `name` explicitly.
 5. Verify all events compile and the Debug output includes the template name.
-6. Update any code that references the old struct names (they should remain the same
-   unless you change the `name` values).
+6. **Event struct names do NOT change.** The `name` on `etw_event` preserves them. Only
+   the template struct name is new.

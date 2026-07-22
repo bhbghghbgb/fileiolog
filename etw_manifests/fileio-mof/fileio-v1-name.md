@@ -26,7 +26,7 @@ The following syntax is simplified from MOF code.
 
 ``` syntax
 [EventType{0, 32}, EventTypeName{"Name", "FileCreate"}]
-class FileIo_V1_Name : FileIo
+class FileIo_V1_Name : FileIo_V1
 {
   uint32 FileObject;
   string FileName;
