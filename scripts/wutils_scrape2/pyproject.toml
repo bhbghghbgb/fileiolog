@@ -1,0 +1,16 @@
+[project]
+name = "wutils-scrape2"
+version = "0.1.0"
+description = "Scrape WMI docs from wutils.com and convert to markdown"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "scrapy>=2.11",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+]
+
+[project.scripts]
+wutils-scrape = "main:main"
+wutils-scraper = "scraper:main"
+wutils-converter = "converter:main"
