@@ -19,9 +19,9 @@ pub mod masks {
 etw_provider! {
     #[etw_provider(kind = "user", name = "Microsoft-Windows-Kernel-Process", guid = "22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716")]
     pub enum UserTraceKernelProcessEvent {
-        // ── Event ID 1 (ProcessStart) ──────────────────────────
-        #[etw_event(id = 1, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
-        pub struct ProcessStartV0 {
+        // ── ProcessStartArgsV0 (v=0, tid=ProcessStartArgs) ─────
+        #[etw_event(name = "ProcessStartV0", id = 1, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        pub struct ProcessStartArgsV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "CreateTime", parse_as = ferrisetw::native::time::FileTime)]
@@ -34,8 +34,9 @@ etw_provider! {
             pub image_name: String,
         }
 
-        #[etw_event(id = 1, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
-        pub struct ProcessStartV1 {
+        // ── ProcessStartArgsV1 (v=1, tid=ProcessStartArgs_V1) ──
+        #[etw_event(name = "ProcessStartV1", id = 1, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        pub struct ProcessStartArgsV1 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "CreateTime", parse_as = ferrisetw::native::time::FileTime)]
@@ -50,8 +51,9 @@ etw_provider! {
             pub image_name: String,
         }
 
-        #[etw_event(id = 1, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
-        pub struct ProcessStartV2 {
+        // ── ProcessStartArgsV2 (v=2, tid=ProcessStartArgs_V2) ──
+        #[etw_event(name = "ProcessStartV2", id = 1, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        pub struct ProcessStartArgsV2 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "CreateTime", parse_as = ferrisetw::native::time::FileTime)]
@@ -74,8 +76,11 @@ etw_provider! {
             pub package_relative_app_id: String,
         }
 
-        #[etw_event(id = 1, version = 3, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
-        pub struct ProcessStartV3 {
+        // ── ProcessRundownArgsV1 (tid=ProcessRundownArgs_V1) ───
+        // Shared by ProcessStartV3 (id=1, v=3) and ProcessRundownV1 (id=15, v=1)
+        #[etw_event(name = "ProcessStartV3", id = 1, version = 3, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        #[etw_event(name = "ProcessRundownV1", id = 15, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        pub struct ProcessRundownArgsV1 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "ProcessSequenceNumber")]
@@ -108,8 +113,9 @@ etw_provider! {
             pub package_relative_app_id: String,
         }
 
-        #[etw_event(id = 2, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
-        pub struct ProcessStopV0 {
+        // ── ProcessStopArgsV0 (v=0, tid=ProcessStopArgs) ───────
+        #[etw_event(name = "ProcessStopV0", id = 2, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        pub struct ProcessStopArgsV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "CreateTime", parse_as = ferrisetw::native::time::FileTime)]
@@ -130,8 +136,9 @@ etw_provider! {
             pub image_name: String,
         }
 
-        #[etw_event(id = 2, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
-        pub struct ProcessStopV1 {
+        // ── ProcessStopArgsV1 (v=1, tid=ProcessStopArgs_V1) ────
+        #[etw_event(name = "ProcessStopV1", id = 2, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        pub struct ProcessStopArgsV1 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "CreateTime", parse_as = ferrisetw::native::time::FileTime)]
@@ -164,8 +171,9 @@ etw_provider! {
             pub image_name: String,
         }
 
-        #[etw_event(id = 2, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
-        pub struct ProcessStopV2 {
+        // ── ProcessStopArgsV2 (v=2, tid=ProcessStopArgs_V2) ────
+        #[etw_event(name = "ProcessStopV2", id = 2, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        pub struct ProcessStopArgsV2 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "ProcessSequenceNumber")]
@@ -200,9 +208,11 @@ etw_provider! {
             pub image_name: String,
         }
 
-        // ── Event ID 3 (ThreadStart) ───────────────────────────
-        #[etw_event(id = 3, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
-        pub struct ThreadStartV0 {
+        // ── ThreadStartArgsV0 (v=0, tid=ThreadStartArgs) ───────
+        // Shared by ThreadStart (id=3) and ThreadStop (id=4) at v=0
+        #[etw_event(name = "ThreadStartV0", id = 3, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
+        #[etw_event(name = "ThreadStopV0", id = 4, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
+        pub struct ThreadStartArgsV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "ThreadID")]
@@ -223,8 +233,9 @@ etw_provider! {
             pub teb_base: usize,
         }
 
-        #[etw_event(id = 3, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
-        pub struct ThreadStartV1 {
+        // ── ThreadStartArgsV1 (v=1, tid=ThreadStartArgs_V1) ────
+        #[etw_event(name = "ThreadStartV1", id = 3, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
+        pub struct ThreadStartArgsV1 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "ThreadID")]
@@ -247,31 +258,9 @@ etw_provider! {
             pub sub_process_tag: u32,
         }
 
-        // ── Event ID 4 (ThreadStop) ────────────────────────────
-        #[etw_event(id = 4, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
-        pub struct ThreadStopV0 {
-            #[etw_prop(name = "ProcessID")]
-            pub process_id: u32,
-            #[etw_prop(name = "ThreadID")]
-            pub thread_id: u32,
-            #[etw_prop(name = "StackBase", parse_as = ferrisetw::parser::Pointer)]
-            pub stack_base: usize,
-            #[etw_prop(name = "StackLimit", parse_as = ferrisetw::parser::Pointer)]
-            pub stack_limit: usize,
-            #[etw_prop(name = "UserStackBase", parse_as = ferrisetw::parser::Pointer)]
-            pub user_stack_base: usize,
-            #[etw_prop(name = "UserStackLimit", parse_as = ferrisetw::parser::Pointer)]
-            pub user_stack_limit: usize,
-            #[etw_prop(name = "StartAddr", parse_as = ferrisetw::parser::Pointer)]
-            pub start_addr: usize,
-            #[etw_prop(name = "Win32StartAddr", parse_as = ferrisetw::parser::Pointer)]
-            pub win32_start_addr: usize,
-            #[etw_prop(name = "TebBase", parse_as = ferrisetw::parser::Pointer)]
-            pub teb_base: usize,
-        }
-
-        #[etw_event(id = 4, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
-        pub struct ThreadStopV1 {
+        // ── ThreadStopArgsV1 (v=1, tid=ThreadStopArgs_V1) ──────
+        #[etw_event(name = "ThreadStopV1", id = 4, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_THREAD)]
+        pub struct ThreadStopArgsV1 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "ThreadID")]
@@ -296,9 +285,11 @@ etw_provider! {
             pub cycle_time: u64,
         }
 
-        // ── Event ID 5 (ImageLoad) ─────────────────────────────
-        #[etw_event(id = 5, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_IMAGE)]
-        pub struct ImageLoadV0 {
+        // ── ImageLoadArgs (v=0, tid=ImageLoadArgs) ─────────────
+        // Shared by ImageLoad (id=5) and ImageUnload (id=6)
+        #[etw_event(name = "ImageLoadV0", id = 5, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_IMAGE)]
+        #[etw_event(name = "ImageUnloadV0", id = 6, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_IMAGE)]
+        pub struct ImageLoadArgs {
             #[etw_prop(name = "ImageBase", parse_as = ferrisetw::parser::Pointer)]
             pub image_base: usize,
             #[etw_prop(name = "ImageSize", parse_as = ferrisetw::parser::Pointer)]
@@ -315,28 +306,14 @@ etw_provider! {
             pub image_name: String,
         }
 
-        // ── Event ID 6 (ImageUnload) ───────────────────────────
-        #[etw_event(id = 6, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_IMAGE)]
-        pub struct ImageUnloadV0 {
-            #[etw_prop(name = "ImageBase", parse_as = ferrisetw::parser::Pointer)]
-            pub image_base: usize,
-            #[etw_prop(name = "ImageSize", parse_as = ferrisetw::parser::Pointer)]
-            pub image_size: usize,
-            #[etw_prop(name = "ProcessID")]
-            pub process_id: u32,
-            #[etw_prop(name = "ImageCheckSum")]
-            pub image_checksum: u32,
-            #[etw_prop(name = "TimeDateStamp")]
-            pub time_date_stamp: u32,
-            #[etw_prop(name = "DefaultBase", parse_as = ferrisetw::parser::Pointer)]
-            pub default_base: usize,
-            #[etw_prop(name = "ImageName")]
-            pub image_name: String,
-        }
-
-        // ── Event ID 7 (CpuBasePriorityChange) ─────────────────
-        #[etw_event(id = 7, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_CPU_PRIORITY)]
-        pub struct CpuBasePriorityChangeV0 {
+        // ── CpuBasePriorityChangeArgs (v=0, tid=CpuBasePriorityChangeArgs)
+        // Shared by CpuBasePriorityChange (id=7), CpuPriorityChange (id=8),
+        // PagePriorityChange (id=9), IoPriorityChange (id=10)
+        #[etw_event(name = "CpuBasePriorityChangeV0", id = 7, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_CPU_PRIORITY)]
+        #[etw_event(name = "CpuPriorityChangeV0", id = 8, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_CPU_PRIORITY)]
+        #[etw_event(name = "PagePriorityChangeV0", id = 9, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_OTHER_PRIORITY)]
+        #[etw_event(name = "IoPriorityChangeV0", id = 10, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_OTHER_PRIORITY)]
+        pub struct CpuBasePriorityChangeArgs {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "ThreadID")]
@@ -347,79 +324,32 @@ etw_provider! {
             pub new_priority: u8,
         }
 
-        // ── Event ID 8 (CpuPriorityChange) ─────────────────────
-        #[etw_event(id = 8, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_CPU_PRIORITY)]
-        pub struct CpuPriorityChangeV0 {
-            #[etw_prop(name = "ProcessID")]
-            pub process_id: u32,
-            #[etw_prop(name = "ThreadID")]
-            pub thread_id: u32,
-            #[etw_prop(name = "OldPriority")]
-            pub old_priority: u8,
-            #[etw_prop(name = "NewPriority")]
-            pub new_priority: u8,
-        }
-
-        // ── Event ID 9 (PagePriorityChange) ────────────────────
-        #[etw_event(id = 9, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_OTHER_PRIORITY)]
-        pub struct PagePriorityChangeV0 {
-            #[etw_prop(name = "ProcessID")]
-            pub process_id: u32,
-            #[etw_prop(name = "ThreadID")]
-            pub thread_id: u32,
-            #[etw_prop(name = "OldPriority")]
-            pub old_priority: u8,
-            #[etw_prop(name = "NewPriority")]
-            pub new_priority: u8,
-        }
-
-        // ── Event ID 10 (IoPriorityChange) ─────────────────────
-        #[etw_event(id = 10, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_OTHER_PRIORITY)]
-        pub struct IoPriorityChangeV0 {
-            #[etw_prop(name = "ProcessID")]
-            pub process_id: u32,
-            #[etw_prop(name = "ThreadID")]
-            pub thread_id: u32,
-            #[etw_prop(name = "OldPriority")]
-            pub old_priority: u8,
-            #[etw_prop(name = "NewPriority")]
-            pub new_priority: u8,
-        }
-
-        // ── Event ID 11 (ProcessFreezeStart) ───────────────────
-        #[etw_event(id = 11, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
-        pub struct ProcessFreezeStartV0 {
+        // ── ProcessFreezeStartArgsV0 (v=0, tid=ProcessFreezeStartArgs)
+        // Shared by ProcessFreezeStart (id=11) and ProcessFreezeStop (id=12)
+        #[etw_event(name = "ProcessFreezeStartV0", id = 11, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
+        #[etw_event(name = "ProcessFreezeStopV0", id = 12, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
+        pub struct ProcessFreezeStartArgsV0 {
             #[etw_prop(name = "FrozenProcessID")]
             pub frozen_process_id: u32,
         }
 
-        #[etw_event(id = 11, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
-        pub struct ProcessFreezeStartV1 {
+        // ── ProcessFreezeStartArgsV1 (v=1, tid=ProcessFreezeStartArgs_V1)
+        // Shared by ProcessFreezeStart_V1 (id=11) and ProcessFreezeStop_V1 (id=12)
+        #[etw_event(name = "ProcessFreezeStartV1", id = 11, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
+        #[etw_event(name = "ProcessFreezeStopV1", id = 12, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
+        pub struct ProcessFreezeStartArgsV1 {
             #[etw_prop(name = "FrozenProcessID")]
             pub frozen_process_id: u32,
             #[etw_prop(name = "CreateTime", parse_as = ferrisetw::native::time::FileTime)]
             pub create_time: time::OffsetDateTime,
         }
 
-        // ── Event ID 12 (ProcessFreezeStop) ────────────────────
-        #[etw_event(id = 12, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
-        pub struct ProcessFreezeStopV0 {
-            #[etw_prop(name = "FrozenProcessID")]
-            pub frozen_process_id: u32,
-        }
-
-        #[etw_event(id = 12, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS_FREEZE)]
-        pub struct ProcessFreezeStopV1 {
-            #[etw_prop(name = "FrozenProcessID")]
-            pub frozen_process_id: u32,
-            #[etw_prop(name = "CreateTime", parse_as = ferrisetw::native::time::FileTime)]
-            pub create_time: time::OffsetDateTime,
-        }
-
-        // ── Event ID 13 (JobStart) ─────────────────────────────
-        #[etw_event(id = 13, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB)]
-        pub struct JobStartV0 {
-            #[etw_prop(name = "ContainerID", )]
+        // ── JobStartArgs (v=0, tid=JobStartArgs) ───────────────
+        // Shared by JobStart (id=13) and JobTerminateStop (id=14)
+        #[etw_event(name = "JobStartV0", id = 13, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB)]
+        #[etw_event(name = "JobTerminateStopV0", id = 14, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB)]
+        pub struct JobStartArgs {
+            #[etw_prop(name = "ContainerID")]
             pub container_id: windows::core::GUID,
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
@@ -427,20 +357,9 @@ etw_provider! {
             pub status_code: u32,
         }
 
-        // ── Event ID 14 (JobTerminateStop) ─────────────────────
-        #[etw_event(id = 14, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB)]
-        pub struct JobTerminateStopV0 {
-            #[etw_prop(name = "ContainerID", )]
-            pub container_id: windows::core::GUID,
-            #[etw_prop(name = "JobID")]
-            pub job_id: u32,
-            #[etw_prop(name = "StatusCode")]
-            pub status_code: u32,
-        }
-
-        // ── Event ID 15 (ProcessRundown) ───────────────────────
-        #[etw_event(id = 15, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
-        pub struct ProcessRundownV0 {
+        // ── ProcessRundownArgsV0 (v=0, tid=ProcessRundownArgs) ─
+        #[etw_event(name = "ProcessRundownV0", id = 15, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
+        pub struct ProcessRundownArgsV0 {
             #[etw_prop(name = "ProcessID")]
             pub process_id: u32,
             #[etw_prop(name = "CreateTime", parse_as = ferrisetw::native::time::FileTime)]
@@ -463,47 +382,15 @@ etw_provider! {
             pub package_relative_app_id: String,
         }
 
-        #[etw_event(id = 15, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_PROCESS)]
-        pub struct ProcessRundownV1 {
-            #[etw_prop(name = "ProcessID")]
-            pub process_id: u32,
-            #[etw_prop(name = "ProcessSequenceNumber")]
-            pub process_sequence_number: u64,
-            #[etw_prop(name = "CreateTime", parse_as = ferrisetw::native::time::FileTime)]
-            pub create_time: time::OffsetDateTime,
-            #[etw_prop(name = "ParentProcessID")]
-            pub parent_process_id: u32,
-            #[etw_prop(name = "ParentProcessSequenceNumber")]
-            pub parent_process_sequence_number: u64,
-            #[etw_prop(name = "SessionID")]
-            pub session_id: u32,
-            #[etw_prop(name = "Flags")]
-            pub flags: u32,
-            #[etw_prop(name = "ProcessTokenElevationType")]
-            pub process_token_elevation_type: u32,
-            #[etw_prop(name = "ProcessTokenIsElevated")]
-            pub process_token_is_elevated: u32,
-            #[etw_prop(name = "MandatoryLabel")]
-            pub mandatory_label: String,
-            #[etw_prop(name = "ImageName")]
-            pub image_name: String,
-            #[etw_prop(name = "ImageChecksum")]
-            pub image_checksum: u32,
-            #[etw_prop(name = "TimeDateStamp")]
-            pub time_date_stamp: u32,
-            #[etw_prop(name = "PackageFullName")]
-            pub package_full_name: String,
-            #[etw_prop(name = "PackageRelativeAppId")]
-            pub package_relative_app_id: String,
-        }
-
-        // ── Event ID 16 (task_0) ───────────────────────────────
-        #[etw_event(id = 16, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_ENABLE_PROCESS_TRACING_CALLBACKS)]
+        // ── Event ID 16: task_0 (v=0, no template) ─────────────
+        #[etw_event(name = "EnableProcessTracingCallbacksV0", id = 16, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_ENABLE_PROCESS_TRACING_CALLBACKS)]
         pub struct EnableProcessTracingCallbacksV0 {}
 
-        // ── Event ID 17 (PsDiskIoAttributionStart) ─────────────
-        #[etw_event(id = 17, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
-        pub struct PsDiskIoAttributionStartV0 {
+        // ── PsDiskIoAttributionStartArgs (v=0, tid=PsDiskIoAttributionStartArgs)
+        // Shared by PsDiskIoAttributionStart (id=17) and PsDiskIoAttributionStop (id=18)
+        #[etw_event(name = "PsDiskIoAttributionStartV0", id = 17, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(name = "PsDiskIoAttributionStopV0", id = 18, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        pub struct PsDiskIoAttributionStartArgs {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
             #[etw_prop(name = "DiskIoAttribution", parse_as = ferrisetw::parser::Pointer)]
@@ -512,20 +399,11 @@ etw_provider! {
             pub status_code: u32,
         }
 
-        // ── Event ID 18 (PsDiskIoAttributionStop) ──────────────
-        #[etw_event(id = 18, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
-        pub struct PsDiskIoAttributionStopV0 {
-            #[etw_prop(name = "JobID")]
-            pub job_id: u32,
-            #[etw_prop(name = "DiskIoAttribution", parse_as = ferrisetw::parser::Pointer)]
-            pub disk_io_attribution: usize,
-            #[etw_prop(name = "StatusCode")]
-            pub status_code: u32,
-        }
-
-        // ── Event ID 19 (PsIoRateControlStart) ─────────────────
-        #[etw_event(id = 19, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
-        pub struct PsIoRateControlStartV0 {
+        // ── PsIoRateControlStartArgsV0 (v=0, tid=PsIoRateControlStartArgs)
+        // Shared by PsIoRateControlStart (id=19) and PsIoRateControlStop (id=20)
+        #[etw_event(name = "PsIoRateControlStartV0", id = 19, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(name = "PsIoRateControlStopV0", id = 20, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        pub struct PsIoRateControlStartArgsV0 {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
             #[etw_prop(name = "IoRateControl", parse_as = ferrisetw::parser::Pointer)]
@@ -540,8 +418,11 @@ etw_provider! {
             pub status_code: u32,
         }
 
-        #[etw_event(id = 19, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
-        pub struct PsIoRateControlStartV1 {
+        // ── PsIoRateControlStartArgsV1 (v=1, tid=PsIoRateControlStartArgs_V1)
+        // Shared by PsIoRateControlStart_V1 (id=19) and PsIoRateControlStop_V1 (id=20)
+        #[etw_event(name = "PsIoRateControlStartV1", id = 19, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(name = "PsIoRateControlStopV1", id = 20, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        pub struct PsIoRateControlStartArgsV1 {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
             #[etw_prop(name = "IoRateControl", parse_as = ferrisetw::parser::Pointer)]
@@ -572,8 +453,11 @@ etw_provider! {
             pub status_code: u32,
         }
 
-        #[etw_event(id = 19, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
-        pub struct PsIoRateControlStartV2 {
+        // ── PsIoRateControlStartArgsV2 (v=2, tid=PsIoRateControlStartArgs_V2)
+        // Shared by PsIoRateControlStart_V2 (id=19) and PsIoRateControlStop_V2 (id=20)
+        #[etw_event(name = "PsIoRateControlStartV2", id = 19, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        #[etw_event(name = "PsIoRateControlStopV2", id = 20, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
+        pub struct PsIoRateControlStartArgsV2 {
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
             #[etw_prop(name = "IoRateControl", parse_as = ferrisetw::parser::Pointer)]
@@ -610,106 +494,19 @@ etw_provider! {
             pub status_code: u32,
         }
 
-        // ── Event ID 20 (PsIoRateControlStop) ──────────────────
-        #[etw_event(id = 20, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
-        pub struct PsIoRateControlStopV0 {
-            #[etw_prop(name = "JobID")]
-            pub job_id: u32,
-            #[etw_prop(name = "IoRateControl", parse_as = ferrisetw::parser::Pointer)]
-            pub io_rate_control: usize,
-            #[etw_prop(name = "ControlType")]
-            pub control_type: u32,
-            #[etw_prop(name = "RateType")]
-            pub rate_type: u32,
-            #[etw_prop(name = "RateAmount")]
-            pub rate_amount: u32,
-            #[etw_prop(name = "StatusCode")]
-            pub status_code: u32,
-        }
-
-        #[etw_event(id = 20, version = 1, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
-        pub struct PsIoRateControlStopV1 {
-            #[etw_prop(name = "JobID")]
-            pub job_id: u32,
-            #[etw_prop(name = "IoRateControl", parse_as = ferrisetw::parser::Pointer)]
-            pub io_rate_control: usize,
-            #[etw_prop(name = "MaxIops")]
-            pub max_iops: u64,
-            #[etw_prop(name = "MaxBandwidth")]
-            pub max_bandwidth: u64,
-            #[etw_prop(name = "MaxTimePercent")]
-            pub max_time_percent: u64,
-            #[etw_prop(name = "ReservationIops")]
-            pub reservation_iops: u64,
-            #[etw_prop(name = "ReservationBandwidth")]
-            pub reservation_bandwidth: u64,
-            #[etw_prop(name = "ReservationTimePercent")]
-            pub reservation_time_percent: u64,
-            #[etw_prop(name = "CriticalReservationIops")]
-            pub critical_reservation_iops: u64,
-            #[etw_prop(name = "CriticalReservationBandwidth")]
-            pub critical_reservation_bandwidth: u64,
-            #[etw_prop(name = "CriticalReservationTimePercent")]
-            pub critical_reservation_time_percent: u64,
-            #[etw_prop(name = "ControlFlags")]
-            pub control_flags: u32,
-            #[etw_prop(name = "VolumeName")]
-            pub volume_name: String,
-            #[etw_prop(name = "StatusCode")]
-            pub status_code: u32,
-        }
-
-        #[etw_event(id = 20, version = 2, keyword_mask = masks::WINEVENT_KEYWORD_JOB_IO)]
-        pub struct PsIoRateControlStopV2 {
-            #[etw_prop(name = "JobID")]
-            pub job_id: u32,
-            #[etw_prop(name = "IoRateControl", parse_as = ferrisetw::parser::Pointer)]
-            pub io_rate_control: usize,
-            #[etw_prop(name = "MaxIops")]
-            pub max_iops: u64,
-            #[etw_prop(name = "MaxBandwidth")]
-            pub max_bandwidth: u64,
-            #[etw_prop(name = "MaxTimePercent")]
-            pub max_time_percent: u64,
-            #[etw_prop(name = "ReservationIops")]
-            pub reservation_iops: u64,
-            #[etw_prop(name = "ReservationBandwidth")]
-            pub reservation_bandwidth: u64,
-            #[etw_prop(name = "ReservationTimePercent")]
-            pub reservation_time_percent: u64,
-            #[etw_prop(name = "CriticalReservationIops")]
-            pub critical_reservation_iops: u64,
-            #[etw_prop(name = "CriticalReservationBandwidth")]
-            pub critical_reservation_bandwidth: u64,
-            #[etw_prop(name = "CriticalReservationTimePercent")]
-            pub critical_reservation_time_percent: u64,
-            #[etw_prop(name = "SoftMaxIops")]
-            pub soft_max_iops: u64,
-            #[etw_prop(name = "SoftMaxBandwidth")]
-            pub soft_max_bandwidth: u64,
-            #[etw_prop(name = "SoftMaxTimePercent")]
-            pub soft_max_time_percent: u64,
-            #[etw_prop(name = "ControlFlags")]
-            pub control_flags: u32,
-            #[etw_prop(name = "VolumeName")]
-            pub volume_name: String,
-            #[etw_prop(name = "StatusCode")]
-            pub status_code: u32,
-        }
-
-        // ── Event ID 21 (ThreadWorkOnBehalfUpdate) ──────────────
-        #[etw_event(id = 21, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_WORK_ON_BEHALF)]
-        pub struct ThreadWorkOnBehalfUpdateV0 {
+        // ── ThreadWorkOnBehalfUpdateArgs (v=0, tid=ThreadWorkOnBehalfUpdateArgs)
+        #[etw_event(name = "ThreadWorkOnBehalfUpdateV0", id = 21, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_WORK_ON_BEHALF)]
+        pub struct ThreadWorkOnBehalfUpdateArgs {
             #[etw_prop(name = "OldWorkOnBehalfThreadID")]
             pub old_work_on_behalf_thread_id: u32,
             #[etw_prop(name = "NewWorkOnBehalfThreadID")]
             pub new_work_on_behalf_thread_id: u32,
         }
 
-        // ── Event ID 22 (JobServerSiloStart) ───────────────────
-        #[etw_event(id = 22, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
-        pub struct JobServerSiloStartV0 {
-            #[etw_prop(name = "ContainerID", )]
+        // ── JobServerSiloStartArgs (v=0, tid=JobServerSiloStartArgs)
+        #[etw_event(name = "JobServerSiloStartV0", id = 22, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
+        pub struct JobServerSiloStartArgs {
+            #[etw_prop(name = "ContainerID")]
             pub container_id: windows::core::GUID,
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
@@ -717,10 +514,13 @@ etw_provider! {
             pub state: u16,
         }
 
-        // ── Event ID 23 (JobServerSiloStart23) ──────────────────
-        #[etw_event(id = 23, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
-        pub struct JobServerSiloStart23V0 {
-            #[etw_prop(name = "ContainerID", )]
+        // ── JobServerSiloStart23Args (v=0, tid=JobServerSiloStart23Args)
+        // Shared by JobServerSiloStart23 (id=23), JobServerSiloStart25 (id=25), JobServerSiloStartStop26 (id=26)
+        #[etw_event(name = "JobServerSiloStart23V0", id = 23, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
+        #[etw_event(name = "JobServerSiloStart25V0", id = 25, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
+        #[etw_event(name = "JobServerSiloStartStop26V0", id = 26, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
+        pub struct JobServerSiloStart23Args {
+            #[etw_prop(name = "ContainerID")]
             pub container_id: windows::core::GUID,
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
@@ -728,37 +528,15 @@ etw_provider! {
             pub monitor_name: String,
         }
 
-        // ── Event ID 24 (JobServerSiloStartStop) ────────────────
-        #[etw_event(id = 24, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
-        pub struct JobServerSiloStartStopV0 {
-            #[etw_prop(name = "ContainerID", )]
+        // ── JobServerSiloStartStopArgs (v=0, tid=JobServerSiloStartStopArgs)
+        #[etw_event(name = "JobServerSiloStartStopV0", id = 24, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
+        pub struct JobServerSiloStartStopArgs {
+            #[etw_prop(name = "ContainerID")]
             pub container_id: windows::core::GUID,
             #[etw_prop(name = "JobID")]
             pub job_id: u32,
             #[etw_prop(name = "Status")]
             pub status: u32,
-            #[etw_prop(name = "MonitorName")]
-            pub monitor_name: String,
-        }
-
-        // ── Event ID 25 (JobServerSiloStart25) ──────────────────
-        #[etw_event(id = 25, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
-        pub struct JobServerSiloStart25V0 {
-            #[etw_prop(name = "ContainerID", )]
-            pub container_id: windows::core::GUID,
-            #[etw_prop(name = "JobID")]
-            pub job_id: u32,
-            #[etw_prop(name = "MonitorName")]
-            pub monitor_name: String,
-        }
-
-        // ── Event ID 26 (JobServerSiloStartStop26) ──────────────
-        #[etw_event(id = 26, version = 0, keyword_mask = masks::WINEVENT_KEYWORD_JOB_SILO)]
-        pub struct JobServerSiloStartStop26V0 {
-            #[etw_prop(name = "ContainerID", )]
-            pub container_id: windows::core::GUID,
-            #[etw_prop(name = "JobID")]
-            pub job_id: u32,
             #[etw_prop(name = "MonitorName")]
             pub monitor_name: String,
         }
