@@ -45,7 +45,13 @@ def build_url_map(mapping):
             parts = [p.lower() for p in bc[start_len - 1:]]
             output_path = '/'.join(parts) + '.md'
 
-        url_map[url.rstrip('/')] = output_path.replace('\\', '/')
+        clean_url = url.rstrip('/')
+        output_path = output_path.replace('\\', '/')
+        url_map[clean_url] = output_path
+        # Also add root-relative path for browser-saved files
+        parsed = urlparse(clean_url)
+        if parsed.path:
+            url_map[parsed.path] = output_path
 
     return url_map
 
@@ -109,17 +115,12 @@ def convert_one(html_path, page_url, url_map):
         lines.append(description)
         lines.append('')
 
-    section_nav = _extract_section_nav(soup, url_map, page_path)
-    if section_nav:
-        lines.append(section_nav)
-        lines.append('')
-
-    childs = _extract_child_classes(soup, url_map)
+    childs = _extract_child_classes(soup, url_map, page_path)
     if childs:
         lines.append(childs)
         lines.append('')
 
-    properties = _extract_properties(soup, main, url_map)
+    properties = _extract_properties(soup, main, url_map, page_path)
     if properties:
         lines.append(properties)
         lines.append('')
@@ -146,7 +147,7 @@ def _content_between(soup, start_marker, end_marker):
     return html[s + len(start_marker):e]
 
 
-def _table_to_markdown(table_tag, url_map=None, skip_rows=0):
+def _table_to_markdown(table_tag, url_map=None, skip_rows=0, current_file=''):
     rows = table_tag.find_all('tr')
     if len(rows) <= skip_rows:
         return None
@@ -162,7 +163,7 @@ def _table_to_markdown(table_tag, url_map=None, skip_rows=0):
                     text = a.get_text(strip=True)
                     href = a.get('href', '')
                     if text:
-                        parts.append(f'[{text}]({_rewrite_url(href, url_map)})')
+                        parts.append(f'[{text}]({_rewrite_url(href, url_map, current_file)})')
                 # include any non-link text
                 for t in cell.find_all(string=True, recursive=False):
                     t = t.strip()
@@ -188,7 +189,7 @@ def _table_to_markdown(table_tag, url_map=None, skip_rows=0):
     return '\n'.join(out)
 
 
-def _rewrite_url(href, url_map, page_path=''):
+def _rewrite_url(href, url_map, current_file=''):
     if not href:
         return ''
     if href.startswith('#'):
@@ -205,13 +206,35 @@ def _rewrite_url(href, url_map, page_path=''):
         base = href
 
     stripped = base.rstrip('/')
+    target = None
+
     if stripped in url_map:
-        mapped = url_map[stripped]
+        target = url_map[stripped]
+    else:
+        # Match absolute wutils.com URLs
+        m = re.match(r'https?://wutils\.com(/wmi/root/wmi/([a-z0-9_]+))/?', stripped)
+        # Match root-relative URLs like /wmi/root/wmi/alpc
+        if not m:
+            m = re.match(r'(/wmi/root/wmi/([a-z0-9_]+))/?' , stripped)
+        if m:
+            full_path = m.group(1)
+            class_name = m.group(2).lower()
+            if full_path in url_map:
+                target = url_map[full_path]
+            else:
+                target = class_name + '.md'
+
+    if target:
+        if anchor and target == current_file:
+            return anchor
+        if current_file:
+            cur_dir = os.path.dirname(current_file) if '/' in current_file else ''
+            rel = os.path.relpath(target, start=cur_dir).replace('\\', '/')
+        else:
+            rel = target
         if anchor:
-            if mapped == page_path:
-                return anchor
-            return f'{mapped}{anchor}'
-        return mapped
+            return f'{rel}{anchor}'
+        return rel
 
     for prefix in ['https://wutils.com', 'http://wutils.com']:
         if stripped.startswith(prefix):
@@ -255,36 +278,7 @@ def _extract_description(main):
     return text if text else None
 
 
-def _extract_section_nav(soup, url_map, page_path=''):
-    raw = _content_between(soup, '<!--header-->', '<!--/header-->')
-    if not raw:
-        return None
-
-    local = BeautifulSoup(raw, 'html.parser')
-    parts = []
-    for elem in local.children:
-        if isinstance(elem, Comment):
-            continue
-        if elem.name is None:
-            text = elem.strip()
-            if text:
-                parts.append(text)
-        elif elem.name == 'a':
-            text = elem.get_text(strip=True)
-            href = elem.get('href', '')
-            if not text and not href:
-                continue
-            rewritten = _rewrite_url(href, url_map, page_path) if href else ''
-            parts.append(f'[{text}]({rewritten})')
-        elif elem.name == 'br':
-            pass
-
-    result = ' '.join(parts)
-    result = re.sub(r'\s*\|\s*', ' | ', result)
-    return result.strip() if result else None
-
-
-def _extract_child_classes(soup, url_map):
+def _extract_child_classes(soup, url_map, current_file=''):
     raw = _content_between(soup, '<!--childs-->', '<!--/childs-->')
     if not raw:
         return None
@@ -300,7 +294,7 @@ def _extract_child_classes(soup, url_map):
             div.decompose()
 
     table = local.find('table')
-    md_table = _table_to_markdown(table, url_map) if table else None
+    md_table = _table_to_markdown(table, url_map, current_file=current_file) if table else None
     if not md_table:
         return None
 
@@ -308,7 +302,7 @@ def _extract_child_classes(soup, url_map):
     return '\n'.join(out)
 
 
-def _extract_properties(soup, main, url_map):
+def _extract_properties(soup, main, url_map, current_file=''):
     raw = _content_between(soup, '<!--properties-->', '<!--/properties-->')
     if not raw:
         return None
@@ -323,12 +317,11 @@ def _extract_properties(soup, main, url_map):
 
     table = local.find('table')
     if table:
-        md = _table_to_markdown(table, url_map)
+        md = _table_to_markdown(table, url_map, current_file=current_file)
         if md:
             parts.append(md)
             parts.append('')
 
-    # Detailed property descriptions — between <!--/properties--> and <!--qualifiers-->
     props_end = str(soup).find('<!--/properties-->')
     quals_start = str(soup).find('<!--qualifiers-->')
     if props_end != -1 and quals_start != -1:
@@ -337,7 +330,7 @@ def _extract_properties(soup, main, url_map):
 
         detail_tables = detail_soup.find_all('table')
         for dt in detail_tables:
-            dt_md = _detail_table_to_markdown(dt, url_map)
+            dt_md = _detail_table_to_markdown(dt, url_map, current_file)
             if dt_md:
                 parts.append(dt_md)
                 parts.append('')
@@ -345,7 +338,7 @@ def _extract_properties(soup, main, url_map):
     return '\n'.join(parts) if parts else None
 
 
-def _detail_table_to_markdown(table_tag, url_map):
+def _detail_table_to_markdown(table_tag, url_map, current_file=''):
     rows = table_tag.find_all('tr')
     if not rows:
         return None
@@ -366,7 +359,7 @@ def _detail_table_to_markdown(table_tag, url_map):
         if len(cells) == 2:
             key = cells[0].get_text(strip=True)
             val_cell = cells[1]
-            value = _cell_to_text(val_cell, url_map)
+            value = _cell_to_text(val_cell, url_map, current_file)
             data_rows.append((key, value))
 
     if data_rows:
@@ -378,7 +371,7 @@ def _detail_table_to_markdown(table_tag, url_map):
     return '\n'.join(out_parts) if out_parts else None
 
 
-def _cell_to_text(cell, url_map):
+def _cell_to_text(cell, url_map, current_file=''):
     lines = []
     for child in cell.children:
         if isinstance(child, Tag):
@@ -388,7 +381,7 @@ def _cell_to_text(cell, url_map):
                 text = child.get_text(strip=True)
                 href = child.get('href', '')
                 if href and text:
-                    lines.append(f'[{text}]({_rewrite_url(href, url_map)})')
+                    lines.append(f'[{text}]({_rewrite_url(href, url_map, current_file)})')
                 elif text:
                     lines.append(text)
             else:
