@@ -118,13 +118,14 @@ fn main() {
 fn build_test_configs() -> Vec<TestConfig> {
     let mut configs = Vec::new();
 
-    // --- EnableFlags-based tests ---
+    // ========================================================================
+    // Group A: EnableFlags-based tests (EVENT_TRACE_FLAG_* constants)
+    // ========================================================================
 
     // EVENT_TRACE_FLAG_DISK_FILE_IO (0x00000200)
     // Official docs say: requires DISK_IO, enables FileIo_Name
-    // Note: DISK_FILE_IO may need DISK_IO (0x00000100) to work properly
     configs.push(TestConfig {
-        name: "EVENT_TRACE_FLAG_DISK_FILE_IO".to_string(),
+        name: "EF:DISK_FILE_IO".to_string(),
         enable_flags: Some(0x00000200),
         group_mask: None,
     });
@@ -132,7 +133,7 @@ fn build_test_configs() -> Vec<TestConfig> {
     // EVENT_TRACE_FLAG_FILE_IO (0x02000000)
     // Official docs say: enables FileIo_OpEnd
     configs.push(TestConfig {
-        name: "EVENT_TRACE_FLAG_FILE_IO".to_string(),
+        name: "EF:FILE_IO".to_string(),
         enable_flags: Some(0x02000000),
         group_mask: None,
     });
@@ -140,94 +141,109 @@ fn build_test_configs() -> Vec<TestConfig> {
     // EVENT_TRACE_FLAG_FILE_IO_INIT (0x04000000)
     // Official docs say: enables Create, DirEnum, Info, ReadWrite, SimpleOp
     configs.push(TestConfig {
-        name: "EVENT_TRACE_FLAG_FILE_IO_INIT".to_string(),
+        name: "EF:FILE_IO_INIT".to_string(),
         enable_flags: Some(0x04000000),
         group_mask: None,
     });
 
     // EVENT_TRACE_FLAG_VAMAP (0x00008000)
-    // Likely enables MapFile events (V2+)
-    // Uses FILE_IO_GUID according to ferrisetw kernel_providers
+    // Enables MapFile events (V2+)
     configs.push(TestConfig {
-        name: "EVENT_TRACE_FLAG_VAMAP".to_string(),
+        name: "EF:VAMAP".to_string(),
         enable_flags: Some(0x00008000),
         group_mask: None,
     });
 
-    // Combination: FILE_IO_INIT + FILE_IO
-    configs.push(TestConfig {
-        name: "FILE_IO_INIT + FILE_IO".to_string(),
-        enable_flags: Some(0x04000000 | 0x02000000),
-        group_mask: None,
-    });
+    // ========================================================================
+    // Group B: PERFINFO_GROUPMASK tests — Masks[0] PERF_ equivalents
+    // Same numerical values as EnableFlags, but set via groupmask.
+    // Tests whether the mechanism matters or just the bit position.
+    // ========================================================================
 
-    // Combination: All standard FileIo flags
+    // PERF_FILENAME (0x00000200) — same value as EVENT_TRACE_FLAG_DISK_FILE_IO
     configs.push(TestConfig {
-        name: "DISK_FILE_IO + FILE_IO + FILE_IO_INIT + VAMAP".to_string(),
-        enable_flags: Some(0x00000200 | 0x02000000 | 0x04000000 | 0x00008000),
-        group_mask: None,
-    });
-
-    // --- PERFINFO_GROUPMASK-based tests ---
-    // These use the undocumented extended mask mechanism
-
-    // PERF_FLT_IO_INIT (0x80080000) - FltIoInit events
-    configs.push(TestConfig {
-        name: "PERF_FLT_IO_INIT".to_string(),
+        name: "GM:PERF_FILENAME".to_string(),
         enable_flags: None,
-        group_mask: Some(build_group_mask(0x80080000)),
+        group_mask: Some(build_group_mask(0x00000200)),
     });
 
-    // PERF_FLT_IO (0x80100000) - FltIoCompletion events
+    // PERF_FILE_IO (0x02000000) — same value as EVENT_TRACE_FLAG_FILE_IO
     configs.push(TestConfig {
-        name: "PERF_FLT_IO".to_string(),
+        name: "GM:PERF_FILE_IO".to_string(),
         enable_flags: None,
-        group_mask: Some(build_group_mask(0x80100000)),
+        group_mask: Some(build_group_mask(0x02000000)),
     });
 
-    // PERF_FLT_FASTIO (0x80200000) - FastIO events
+    // PERF_FILE_IO_INIT (0x04000000) — same value as EVENT_TRACE_FLAG_FILE_IO_INIT
     configs.push(TestConfig {
-        name: "PERF_FLT_FASTIO".to_string(),
+        name: "GM:PERF_FILE_IO_INIT".to_string(),
         enable_flags: None,
-        group_mask: Some(build_group_mask(0x80200000)),
+        group_mask: Some(build_group_mask(0x04000000)),
     });
 
-    // PERF_FLT_IO_FAILURE (0x80400000) - FltIoFailure events
+    // PERF_VAMAP (0x00008000) — same value as EVENT_TRACE_FLAG_VAMAP
     configs.push(TestConfig {
-        name: "PERF_FLT_IO_FAILURE".to_string(),
-        enable_flags: None,
-        group_mask: Some(build_group_mask(0x80400000)),
-    });
-
-    // PERF_VAMAP (0x00008000) - MapFile/UnmapFile events
-    // Same value as EVENT_TRACE_FLAG_VAMAP but set via PERFINFO_GROUPMASK
-    configs.push(TestConfig {
-        name: "PERF_VAMAP".to_string(),
+        name: "GM:PERF_VAMAP".to_string(),
         enable_flags: None,
         group_mask: Some(build_group_mask(0x00008000)),
     });
 
-    // All FLT masks combined
+    // ========================================================================
+    // Group C: PERFINFO_GROUPMASK tests — Masks[4] extended masks
+    // These have no EnableFlags equivalent; only accessible via groupmask.
+    // ========================================================================
+
+    // PERF_FLT_IO_INIT (0x80080000) — FltIoInit events
     configs.push(TestConfig {
-        name: "ALL_FLT_MASKS".to_string(),
+        name: "GM:PERF_FLT_IO_INIT".to_string(),
+        enable_flags: None,
+        group_mask: Some(build_group_mask(0x80080000)),
+    });
+
+    // PERF_FLT_IO (0x80100000) — FltIoCompletion events
+    configs.push(TestConfig {
+        name: "GM:PERF_FLT_IO".to_string(),
+        enable_flags: None,
+        group_mask: Some(build_group_mask(0x80100000)),
+    });
+
+    // PERF_FLT_FASTIO (0x80200000) — FastIO events
+    configs.push(TestConfig {
+        name: "GM:PERF_FLT_FASTIO".to_string(),
+        enable_flags: None,
+        group_mask: Some(build_group_mask(0x80200000)),
+    });
+
+    // PERF_FLT_IO_FAILURE (0x80400000) — FltIoFailure events
+    configs.push(TestConfig {
+        name: "GM:PERF_FLT_IO_FAILURE".to_string(),
+        enable_flags: None,
+        group_mask: Some(build_group_mask(0x80400000)),
+    });
+
+    // ========================================================================
+    // Group D: Combination tests
+    // ========================================================================
+
+    // All FileIo EnableFlags combined
+    configs.push(TestConfig {
+        name: "COMBO:ALL_EF_FLAGS".to_string(),
+        enable_flags: Some(0x00000200 | 0x02000000 | 0x04000000 | 0x00008000),
+        group_mask: None,
+    });
+
+    // All FLT masks combined (extended masks only)
+    configs.push(TestConfig {
+        name: "COMBO:ALL_FLT_MASKS".to_string(),
         enable_flags: None,
         group_mask: Some(build_group_mask(
             0x80080000 | 0x80100000 | 0x80200000 | 0x80400000,
         )),
     });
 
-    // Combination: FILE_IO_INIT + FLT masks
+    // Everything combined: all EnableFlags + all FLT masks
     configs.push(TestConfig {
-        name: "FILE_IO_INIT + ALL_FLT_MASKS".to_string(),
-        enable_flags: Some(0x04000000),
-        group_mask: Some(build_group_mask(
-            0x80080000 | 0x80100000 | 0x80200000 | 0x80400000,
-        )),
-    });
-
-    // Comprehensive test: all FileIo flags + all FLT masks
-    configs.push(TestConfig {
-        name: "ALL_FILEIO_FLAGS + ALL_FLT_MASKS".to_string(),
+        name: "COMBO:ALL_EF+ALL_FLT".to_string(),
         enable_flags: Some(0x00000200 | 0x02000000 | 0x04000000 | 0x00008000),
         group_mask: Some(build_group_mask(
             0x80080000 | 0x80100000 | 0x80200000 | 0x80400000,
@@ -252,7 +268,9 @@ fn run_single_test(config: &TestConfig) -> Vec<FileIoEvent> {
 
     let session_name = format!(
         "FileIoTest-{}",
-        config.name.replace(" ", "_").replace("+", "_")
+        config.name        .replace(" ", "_")
+            .replace("+", "_")
+            .replace(":", "_")
     );
 
     // Build trace configuration
@@ -355,13 +373,17 @@ fn print_summary(results: &HashMap<String, Vec<FileIoEvent>>) {
             );
             log::info!("  Class: {}", known.class_name);
             log::info!("  Enabled by:");
-            for (name, count) in config_counts {
+            let mut sorted_configs: Vec<_> = config_counts.iter().collect();
+            sorted_configs.sort_by_key(|(name, _)| name.as_str());
+            for (name, count) in sorted_configs {
                 log::info!("    - {} (count={})", name, count);
             }
         } else {
             log::warn!("Unknown Event: Opcode={}, Version={}", opcode, version);
             log::warn!("  Enabled by:");
-            for (name, count) in config_counts {
+            let mut sorted_configs: Vec<_> = config_counts.iter().collect();
+            sorted_configs.sort_by_key(|(name, _)| name.as_str());
+            for (name, count) in sorted_configs {
                 log::warn!("    - {} (count={})", name, count);
             }
         }

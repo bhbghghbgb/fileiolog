@@ -94,10 +94,20 @@
 
 ## PERFINFO_GROUPMASK (FileIo-related)
 
+### Masks[0] — same numerical values as EnableFlags equivalents
+
+| Mask | Value | Equivalent EnableFlag | Notes |
+|------|-------|----------------------|-------|
+| PERF_FILENAME | 0x00000200 | EVENT_TRACE_FLAG_DISK_FILE_IO | Same value, different mechanism |
+| PERF_VAMAP | 0x00008000 | EVENT_TRACE_FLAG_VAMAP | Same value, different mechanism |
+| PERF_FILE_IO | 0x02000000 | EVENT_TRACE_FLAG_FILE_IO | Same value, different mechanism |
+| PERF_FILE_IO_INIT | 0x04000000 | EVENT_TRACE_FLAG_FILE_IO_INIT | Same value, different mechanism |
+
+### Masks[4] — extended masks with no EnableFlags equivalent
+
 | Mask | Value | Events Enabled |
 |------|-------|----------------|
 | PERF_FLT_IO_INIT | 0x80080000 | FltIoInit (PreOpInit, PostOpInit) |
 | PERF_FLT_IO | 0x80100000 | FltIoCompletion (PreOpCompletion, PostOpCompletion) |
 | PERF_FLT_FASTIO | 0x80200000 | FastIO events |
 | PERF_FLT_IO_FAILURE | 0x80400000 | FltIoFailure (PreOpFailure, PostOpFailure) |
-| PERF_VAMAP | 0x00008000 | MapFile/UnmapFile events (same as EVENT_TRACE_FLAG_VAMAP) |
