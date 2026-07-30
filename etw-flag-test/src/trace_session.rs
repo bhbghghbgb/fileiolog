@@ -1,5 +1,4 @@
 use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
 
 use ferrisetw::provider::kernel_providers;
 use ferrisetw::{EventRecord, KernelTrace, SchemaLocator};
@@ -73,48 +72,6 @@ fn query_control_handle(session_name: &str) -> Result<CONTROLTRACE_HANDLE, std::
     let handle_value = unsafe { props.Wnode.Anonymous1.HistoricalContext };
     Ok(CONTROLTRACE_HANDLE {
         Value: handle_value,
-    })
-}
-
-/// Stop the trace session via ControlTraceW(STOP).
-///
-/// This flushes session buffers and triggers rundown events (DCEnd, FileRundown, etc.).
-/// Rundown events are delivered to the consumer AFTER this call but BEFORE CloseTrace.
-fn stop_session(session_name: &str) -> Result<(), std::io::Error> {
-    let name_wide: Vec<u16> = session_name.encode_utf16().collect();
-    let name_len = name_wide.len().min(NAME_MAX);
-
-    let header_size = std::mem::size_of::<EVENT_TRACE_PROPERTIES>();
-    let name_buf_size = (NAME_MAX + 1) * 2;
-    let total_size = header_size + name_buf_size;
-
-    let mut buffer = vec![0u8; total_size];
-
-    let props = unsafe { &mut *(buffer.as_mut_ptr() as *mut EVENT_TRACE_PROPERTIES) };
-
-    props.Wnode.BufferSize = total_size as u32;
-    props.Wnode.Flags = WNODE_FLAG_TRACED_GUID;
-    props.Wnode.Guid = windows::core::GUID::zeroed();
-    props.LoggerNameOffset = header_size as u32;
-    props.LogFileNameOffset = 0;
-
-    let name_ptr = unsafe { buffer.as_mut_ptr().add(header_size) as *mut u16 };
-    unsafe {
-        std::ptr::copy_nonoverlapping(name_wide.as_ptr(), name_ptr, name_len);
-        std::ptr::write(name_ptr.add(name_len), 0);
-    }
-
-    let result = unsafe {
-        Etw::ControlTraceW(
-            CONTROLTRACE_HANDLE { Value: 0 },
-            windows::core::PCWSTR::from_raw(name_ptr as *const u16),
-            props as *mut EVENT_TRACE_PROPERTIES,
-            Etw::EVENT_TRACE_CONTROL_STOP,
-        )
-    };
-
-    result.ok().map_err(|e| {
-        std::io::Error::from_raw_os_error(e.code().0)
     })
 }
 
@@ -203,39 +160,6 @@ fn make_callback(
     }
 }
 
-/// Properly shut down the trace session to collect rundown events.
-///
-/// The correct teardown sequence for ETW rundown:
-/// 1. ControlTraceW(STOP) - flushes buffers, triggers rundown events
-/// 2. Wait for processing thread - ensures all events (including rundown) are delivered
-/// 3. Drop the trace - CloseTrace becomes a safe no-op
-///
-/// ferrisetw's `trace.stop()` calls CloseTrace before ControlTrace(STOP), which can
-/// miss rundown events. This function does it in the correct order.
-fn shutdown_with_rundown(
-    trace: KernelTrace,
-    processing_thread: JoinHandle<()>,
-) {
-    // Step 1: Stop the session. This flushes buffers and triggers rundown events.
-    // The rundown events are delivered to the consumer (our callback) after this.
-    if let Err(e) = stop_session(SESSION_NAME) {
-        log::warn!("ControlTraceW(STOP) returned: {:?} (may already be stopped)", e);
-    }
-
-    // Step 2: Wait for the processing thread to finish.
-    // ProcessTrace blocks until the trace is closed. After ControlTrace(STOP),
-    // the kernel delivers rundown events and then ProcessTrace returns.
-    // Joining here ensures all events (including rundown) have been delivered.
-    match processing_thread.join() {
-        Ok(()) => log::debug!("Processing thread finished cleanly"),
-        Err(e) => log::warn!("Processing thread panicked: {:?}", e),
-    }
-
-    // Step 3: Drop the trace. This calls CloseTrace + ControlTrace(STOP).
-    // Both are no-ops since the session is already stopped.
-    drop(trace);
-}
-
 /// Run a single test configuration and return the set of event types seen.
 pub fn run_single_test(
     config: &TestConfig,
@@ -290,12 +214,12 @@ fn run_enable_flags_test(
     let cb_collector = Arc::clone(&collector);
     let provider = provider.add_callback(make_callback(cb_collector)).build();
 
-    let (trace, trace_handle) = match KernelTrace::new()
+    let builder = KernelTrace::new()
         .named(String::from(SESSION_NAME))
         .enable(provider)
-        .stop_if_exist(true)
-        .start()
-    {
+        .stop_if_exist(true);
+
+    let (trace, trace_handle) = match builder.start() {
         Ok(r) => r,
         Err(e) => {
             log::error!("Failed to start trace: {:?}", e);
@@ -304,7 +228,7 @@ fn run_enable_flags_test(
     };
 
     // Spawn processing thread
-    let processing_thread = std::thread::spawn(move || {
+    std::thread::spawn(move || {
         let _ = KernelTrace::process_from_handle(trace_handle);
     });
 
@@ -317,8 +241,8 @@ fn run_enable_flags_test(
     // Wait for events to arrive
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    // Proper shutdown: ControlTrace(STOP) -> wait for rundown -> drop
-    shutdown_with_rundown(trace, processing_thread);
+    // Stop the trace
+    let _ = trace.stop();
 
     collector.lock().unwrap().seen.clone()
 }
@@ -352,11 +276,7 @@ fn run_group_mask_test(
         Ok(h) => h,
         Err(e) => {
             log::error!("Failed to query control handle: {:?}", e);
-            // Use proper shutdown even on error path
-            let processing_thread = std::thread::spawn(move || {
-                let _ = KernelTrace::process_from_handle(trace_handle);
-            });
-            shutdown_with_rundown(trace, processing_thread);
+            let _ = trace.stop();
             return std::collections::HashSet::new();
         }
     };
@@ -364,16 +284,13 @@ fn run_group_mask_test(
     // Set the group mask
     if let Err(e) = set_group_mask(control_handle, masks) {
         log::error!("Failed to set group mask: {:?}", e);
-        let processing_thread = std::thread::spawn(move || {
-            let _ = KernelTrace::process_from_handle(trace_handle);
-        });
-        shutdown_with_rundown(trace, processing_thread);
+        let _ = trace.stop();
         return std::collections::HashSet::new();
     }
     log::debug!("Group mask applied: {:?}", masks);
 
     // Spawn processing thread
-    let processing_thread = std::thread::spawn(move || {
+    std::thread::spawn(move || {
         let _ = KernelTrace::process_from_handle(trace_handle);
     });
 
@@ -386,8 +303,8 @@ fn run_group_mask_test(
     // Wait for events to arrive
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    // Proper shutdown: ControlTrace(STOP) -> wait for rundown -> drop
-    shutdown_with_rundown(trace, processing_thread);
+    // Stop the trace
+    let _ = trace.stop();
 
     collector.lock().unwrap().seen.clone()
 }
