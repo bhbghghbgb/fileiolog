@@ -355,6 +355,10 @@ fn print_summary(results: &HashMap<String, Vec<FileIoEvent>>) {
         }
     }
 
+    // Collect received keys before consuming all_events
+    let received_keys: std::collections::HashSet<(u8, u8)> =
+        all_events.keys().copied().collect();
+
     log::info!("");
     log::info!("Event-to-Flag/Mask Mapping:");
     log::info!("==========================");
@@ -386,6 +390,28 @@ fn print_summary(results: &HashMap<String, Vec<FileIoEvent>>) {
             for (name, count) in sorted_configs {
                 log::warn!("    - {} (count={})", name, count);
             }
+        }
+    }
+
+    // Warn about defined events that were never received
+    let mut unreceived: Vec<_> = EVENT_REGISTRY
+        .iter()
+        .filter(|((op, ver), _)| !received_keys.contains(&(*op, *ver)))
+        .collect();
+    unreceived.sort_by_key(|((op, ver), _)| (*op, *ver));
+
+    if !unreceived.is_empty() {
+        log::warn!("");
+        log::warn!("Defined events NOT received by any test configuration:");
+        log::warn!("-------------------------------------------------------");
+        for ((opcode, version), def) in &unreceived {
+            log::warn!(
+                "  {} (Opcode={}, Version={}, Class={})",
+                def.event_name,
+                opcode,
+                version,
+                def.class_name
+            );
         }
     }
 }
