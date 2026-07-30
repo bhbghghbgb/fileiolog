@@ -1,0 +1,283 @@
+use std::ptr;
+use std::sync::{Arc, Mutex};
+
+use ferrisetw::EventRecord;
+use ferrisetw::provider::*;
+use ferrisetw::schema_locator::SchemaLocator;
+use ferrisetw::trace::*;
+use windows::Win32::System::Diagnostics::Etw::{
+    self, CONTROLTRACE_HANDLE, EVENT_TRACE_PROPERTIES, PROCESSTRACE_HANDLE, WNODE_FLAG_TRACED_GUID,
+};
+use windows::core::{GUID, PCWSTR};
+
+use crate::events;
+
+/// FileIo Provider GUID
+const FILE_IO_GUID: GUID = GUID::from_u128(0x90cbdc39_4a3e_11d1_84f4_0000f80464e3);
+
+/// Configuration for a trace session
+pub struct TraceConfig {
+    pub session_name: String,
+    pub enable_flags: Option<u32>,
+    pub group_mask: Option<[u32; 8]>,
+}
+
+/// A kernel trace session with lifecycle management
+pub struct KernelTraceSession {
+    config: TraceConfig,
+    trace: Option<ferrisetw::trace::KernelTrace>,
+    trace_handle: Option<PROCESSTRACE_HANDLE>,
+    control_handle: Option<CONTROLTRACE_HANDLE>,
+}
+
+impl KernelTraceSession {
+    /// Create a new kernel trace session
+    pub fn new(config: TraceConfig) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(KernelTraceSession {
+            config,
+            trace: None,
+            trace_handle: None,
+            control_handle: None,
+        })
+    }
+
+    /// Start the trace session and return the trace handle for processing
+    pub fn start(&mut self) -> Result<PROCESSTRACE_HANDLE, Box<dyn std::error::Error>> {
+        let collected_events: Arc<Mutex<Vec<events::FileIoEvent>>> =
+            Arc::new(Mutex::new(Vec::new()));
+        let events_clone = collected_events.clone();
+
+        // Create a provider with the FILE_IO_GUID
+        // We use a custom provider with no flags since we're testing specific flags
+        let provider = Provider::by_guid(FILE_IO_GUID)
+            .level(0xFF) // LogAll
+            .any(0) // Match all keywords
+            .all(0)
+            .add_callback(
+                move |record: &EventRecord, _schema_locator: &SchemaLocator| {
+                    let event_id = record.event_id();
+                    let version = record.version();
+                    let timestamp = record.raw_timestamp() as u64;
+                    let process_id = record.process_id();
+                    let thread_id = record.thread_id();
+
+                    // Log the event
+                    events::log_event(event_id, version, timestamp, process_id, thread_id);
+
+                    // Store the event
+                    if let Ok(mut events) = events_clone.lock() {
+                        events.push(events::FileIoEvent {
+                            event_id,
+                            version,
+                            timestamp,
+                            process_id,
+                            thread_id,
+                        });
+                    }
+                },
+            )
+            .build();
+
+        // Build the kernel trace with the appropriate flags
+        let builder = KernelTrace::new()
+            .named(self.config.session_name.clone())
+            .enable(provider)
+            .stop_if_exist(true);
+
+        // Start the trace (without processing yet)
+        let (trace, trace_handle) = builder
+            .start()
+            .map_err(|e| format!("Trace start failed: {:?}", e))?;
+        self.trace = Some(trace);
+        self.trace_handle = Some(trace_handle);
+
+        // Get the control handle by querying the session
+        let control_handle = self.query_control_handle()?;
+        self.control_handle = Some(control_handle);
+
+        // If we have enable_flags, set them via ControlTraceW
+        if let Some(flags) = self.config.enable_flags {
+            self.set_enable_flags(flags)?;
+        }
+
+        // If we have a group mask, set it via TraceSetInformation
+        if let Some(mask) = self.config.group_mask {
+            self.set_group_mask(mask)?;
+        }
+
+        Ok(trace_handle)
+    }
+
+    /// Get the trace handle for processing
+    pub fn get_trace_handle(&self) -> PROCESSTRACE_HANDLE {
+        self.trace_handle.expect("Trace not started")
+    }
+
+    /// Request rundown (DCEnd events) for all providers
+    pub fn request_rundown(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let control_handle = self.control_handle.ok_or("Control handle not available")?;
+
+        let result = unsafe {
+            Etw::EnableTraceEx2(
+                control_handle,
+                &FILE_IO_GUID as *const GUID,
+                Etw::EVENT_CONTROL_CODE_CAPTURE_STATE.0,
+                0, // TRACE_LEVEL_NONE
+                0, // match any keyword
+                0, // match all keyword
+                0, // timeout
+                None,
+            )
+        }
+        .ok();
+
+        if let Err(e) = result {
+            return Err(format!("EnableTraceEx2 failed: {:?}", e).into());
+        }
+
+        log::debug!("Rundown requested for FileIo provider");
+        Ok(())
+    }
+
+    /// Stop the trace session
+    pub fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(trace) = self.trace.take() {
+            trace
+                .stop()
+                .map_err(|e| format!("Trace stop failed: {:?}", e))?;
+        }
+        Ok(())
+    }
+
+    /// Query the control handle by calling ControlTraceW with QUERY
+    fn query_control_handle(&self) -> Result<CONTROLTRACE_HANDLE, Box<dyn std::error::Error>> {
+        let name_wide: Vec<u16> = self
+            .config
+            .session_name
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        let header_size = std::mem::size_of::<EVENT_TRACE_PROPERTIES>();
+        let name_buf_size = (200 + 1) * 2; // TRACE_NAME_MAX_CHARS + 1, in bytes
+        let total_size = header_size + name_buf_size;
+
+        let mut buffer = vec![0u8; total_size];
+
+        let props = unsafe { &mut *(buffer.as_mut_ptr() as *mut EVENT_TRACE_PROPERTIES) };
+        props.Wnode.BufferSize = total_size as u32;
+        props.Wnode.Flags = WNODE_FLAG_TRACED_GUID;
+        props.Wnode.Guid = GUID::zeroed();
+        props.LoggerNameOffset = header_size as u32;
+        props.LogFileNameOffset = 0;
+
+        let name_ptr = unsafe { buffer.as_mut_ptr().add(header_size) as *mut u16 };
+        unsafe {
+            ptr::copy_nonoverlapping(name_wide.as_ptr(), name_ptr, name_wide.len());
+        }
+
+        let result = unsafe {
+            Etw::ControlTraceW(
+                CONTROLTRACE_HANDLE { Value: 0 },
+                PCWSTR::from_raw(name_ptr as *const u16),
+                props as *mut EVENT_TRACE_PROPERTIES,
+                Etw::EVENT_TRACE_CONTROL_QUERY,
+            )
+        }
+        .ok();
+
+        if let Err(e) = result {
+            return Err(format!("ControlTraceW QUERY failed: {:?}", e).into());
+        }
+
+        let handle_value = unsafe { props.Wnode.Anonymous1.HistoricalContext };
+        Ok(CONTROLTRACE_HANDLE {
+            Value: handle_value,
+        })
+    }
+
+    /// Set EnableFlags on the running session via ControlTraceW UPDATE
+    fn set_enable_flags(&self, flags: u32) -> Result<(), Box<dyn std::error::Error>> {
+        let control_handle = self.control_handle.ok_or("Control handle not available")?;
+        let name_wide: Vec<u16> = self
+            .config
+            .session_name
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        let header_size = std::mem::size_of::<EVENT_TRACE_PROPERTIES>();
+        let name_buf_size = (200 + 1) * 2;
+        let total_size = header_size + name_buf_size;
+
+        let mut buffer = vec![0u8; total_size];
+
+        let props = unsafe { &mut *(buffer.as_mut_ptr() as *mut EVENT_TRACE_PROPERTIES) };
+        props.Wnode.BufferSize = total_size as u32;
+        props.Wnode.Flags = WNODE_FLAG_TRACED_GUID;
+        props.Wnode.Guid = GUID::zeroed();
+        props.LoggerNameOffset = header_size as u32;
+        props.LogFileNameOffset = 0;
+        props.EnableFlags = Etw::EVENT_TRACE_FLAG(flags);
+
+        let name_ptr = unsafe { buffer.as_mut_ptr().add(header_size) as *mut u16 };
+        unsafe {
+            ptr::copy_nonoverlapping(name_wide.as_ptr(), name_ptr, name_wide.len());
+        }
+
+        let result = unsafe {
+            Etw::ControlTraceW(
+                control_handle,
+                PCWSTR::null(), // Use handle, not name
+                props as *mut EVENT_TRACE_PROPERTIES,
+                Etw::EVENT_TRACE_CONTROL_UPDATE,
+            )
+        }
+        .ok();
+
+        if let Err(e) = result {
+            return Err(format!("ControlTraceW UPDATE (EnableFlags) failed: {:?}", e).into());
+        }
+
+        log::debug!("Set EnableFlags to 0x{:08X}", flags);
+        Ok(())
+    }
+
+    /// Set PERFINFO_GROUPMASK via TraceSetInformation
+    fn set_group_mask(&self, masks: [u32; 8]) -> Result<(), Box<dyn std::error::Error>> {
+        let control_handle = self.control_handle.ok_or("Control handle not available")?;
+
+        // PERFINFO_GROUPMASK is 8 ULONGs = 32 bytes
+        // We need to pass the TraceSystemTraceEnableFlagsInfo class (0x04)
+        // According to Geoff Chappell, we use TraceSystemTraceEnableFlagsInfo (4)
+        // but with the PERFINFO_GROUPMASK structure
+
+        // Build the PERFINFO_GROUPMASK structure
+        let mut group_mask_data = [0u32; 8];
+        group_mask_data.copy_from_slice(&masks);
+
+        // TraceSystemTraceEnableFlagsInfo = 4
+        const TRACE_SYSTEM_TRACE_ENABLE_FLAGS_INFO: i32 = 4;
+
+        let result = unsafe {
+            Etw::TraceSetInformation(
+                control_handle,
+                std::mem::transmute(TRACE_SYSTEM_TRACE_ENABLE_FLAGS_INFO),
+                group_mask_data.as_ptr() as *const std::ffi::c_void,
+                std::mem::size_of::<[u32; 8]>() as u32,
+            )
+        }
+        .ok();
+
+        if let Err(e) = result {
+            return Err(format!("TraceSetInformation (GroupMask) failed: {:?}", e).into());
+        }
+
+        log::debug!("Set PERFINFO_GROUPMASK to {:?}", masks);
+        Ok(())
+    }
+}
+
+impl Drop for KernelTraceSession {
+    fn drop(&mut self) {
+        let _ = self.stop();
+    }
+}
