@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
+use std::time::Duration;
 
 use ferrisetw::provider::kernel_providers;
 use ferrisetw::{EventRecord, KernelTrace, SchemaLocator};
@@ -222,13 +223,29 @@ fn shutdown_with_rundown(
         log::warn!("ControlTraceW(STOP) returned: {:?} (may already be stopped)", e);
     }
 
-    // Step 2: Wait for the processing thread to finish.
+    // Step 2: Wait for the processing thread to finish with a timeout.
     // ProcessTrace blocks until the trace is closed. After ControlTrace(STOP),
     // the kernel delivers rundown events and then ProcessTrace returns.
     // Joining here ensures all events (including rundown) have been delivered.
-    match processing_thread.join() {
-        Ok(()) => log::debug!("Processing thread finished cleanly"),
-        Err(e) => log::warn!("Processing thread panicked: {:?}", e),
+    // We use a timeout to avoid hanging forever if something goes wrong.
+    const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
+    let start = std::time::Instant::now();
+    loop {
+        if processing_thread.is_finished() {
+            match processing_thread.join() {
+                Ok(()) => log::debug!("Processing thread finished cleanly"),
+                Err(e) => log::warn!("Processing thread panicked: {:?}", e),
+            }
+            break;
+        }
+        if start.elapsed() > SHUTDOWN_TIMEOUT {
+            log::warn!(
+                "Processing thread did not finish within {:?}, dropping trace anyway",
+                SHUTDOWN_TIMEOUT
+            );
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
     }
 
     // Step 3: Drop the trace. This calls CloseTrace + ControlTrace(STOP).
