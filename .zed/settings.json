@@ -5,6 +5,10 @@
     },
     "C": {
       "enable_language_server": false
+    },
+    "CSharp": {
+      "enable_language_server": false
     }
-  }
+  },
+  "file_types": {"C#": ["*.mof"]}
 }

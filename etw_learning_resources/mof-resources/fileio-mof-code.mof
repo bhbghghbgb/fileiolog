@@ -1,0 +1,280 @@
+// --- Class: FileIo ---
+[dynamic: ToInstance, Guid("{90cbdc39-4a3e-11d1-84f4-0000f80464e3}"), EventVersion(3), Description("File Name"): Amended, DisplayName("FileIo"): Amended, LOCALE("ms_409"): Amended]
+class FileIo : MSNT_SystemTrace
+{
+};
+
+// --- Class: FileIo_ReadWrite ---
+[dynamic: ToInstance, EventType{67, 68}, Description("File Read Write"): Amended, EventTypeName{"Read", "Write"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_ReadWrite : FileIo
+{
+        [WmiDataId(1), read, Description("Offset"): Amended] uint64 Offset;
+        [WmiDataId(2), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(3), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(4), pointer, read, Description("FileKey"): Amended] uint32 FileKey;
+        [WmiDataId(5), read, Description("TTID"): Amended] uint32 TTID;
+        [WmiDataId(6), read, Description("IoSize"): Amended] uint32 IoSize;
+        [WmiDataId(7), read, Description("IoFlags"): Amended] uint32 IoFlags;
+};
+
+// --- Class: FileIo_Create ---
+[dynamic: ToInstance, EventType(64), Description("File Create"): Amended, EventTypeName("Create"): Amended, LOCALE("ms_409"): Amended]
+class FileIo_Create : FileIo
+{
+        [WmiDataId(1), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(2), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(3), read, Description("TTID"): Amended] uint32 TTID;
+        [WmiDataId(4), read, Description("CreateOptions"): Amended] uint32 CreateOptions;
+        [WmiDataId(5), read, Description("FileAttributes"): Amended] uint32 FileAttributes;
+        [WmiDataId(6), read, Description("ShareAccess"): Amended] uint32 ShareAccess;
+        [WmiDataId(7), StringTermination("NullTerminated"), format("w"), read, Description("OpenPath"): Amended] string OpenPath;
+};
+
+// --- Class: FltIoInit ---
+[dynamic: ToInstance, EventType{96, 97}, Description("Minifilter IO Init"): Amended, EventTypeName{"PreOpInit", "PostOpInit"}: Amended, LOCALE("ms_409"): Amended]
+class FltIoInit : FileIo
+{
+        [WmiDataId(1), pointer, read, Description("RoutineAddr"): Amended] uint32 RoutineAddr;
+        [WmiDataId(2), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(3), pointer, read, Description("FileContext"): Amended] uint32 FileContext;
+        [WmiDataId(4), pointer, read, Description("Irp"): Amended] uint32 IrpPtr;
+        [WmiDataId(5), pointer, read, Description("CallbackData"): Amended] uint32 CallbackDataPtr;
+        [WmiDataId(6), read, Description("MajorFunction"): Amended] uint32 MajorFunction;
+};
+
+// --- Class: FltIoFailure ---
+[dynamic: ToInstance, EventType{100, 101}, Description("Minifilter IO Failure"): Amended, EventTypeName{"PreOpFailure", "PostOpFailure"}: Amended, LOCALE("ms_409"): Amended]
+class FltIoFailure : FileIo
+{
+        [WmiDataId(1), pointer, read, Description("RoutineAddr"): Amended] uint32 RoutineAddr;
+        [WmiDataId(2), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(3), pointer, read, Description("FileContext"): Amended] uint32 FileContext;
+        [WmiDataId(4), pointer, read, Description("Irp"): Amended] uint32 IrpPtr;
+        [WmiDataId(5), pointer, read, Description("CallbackData"): Amended] uint32 CallbackDataPtr;
+        [WmiDataId(6), read, Description("MajorFunction"): Amended] uint32 MajorFunction;
+        [WmiDataId(7), format("x"), read, Description("Status"): Amended] uint32 Status;
+};
+
+// --- Class: FileIo_Name ---
+[dynamic: ToInstance, EventType{0, 32, 35, 36}, Description("File Name"): Amended, EventTypeName{"Name", "FileCreate", "FileDelete", "FileRundown"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_Name : FileIo
+{
+        [WmiDataId(1), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(2), StringTermination("NullTerminated"), format("w"), read, Description("FileName"): Amended] string FileName;
+};
+
+// --- Class: FileIo_Info ---
+[dynamic: ToInstance, EventType{69, 70, 71, 74, 75}, Description("File Information"): Amended, EventTypeName{"SetInfo", "Delete", "Rename", "QueryInfo", "FSControl"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_Info : FileIo
+{
+        [WmiDataId(1), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(2), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(3), pointer, read, Description("FileKey"): Amended] uint32 FileKey;
+        [WmiDataId(4), pointer, read, Description("ExtraInfo"): Amended] uint32 ExtraInfo;
+        [WmiDataId(5), read, Description("TTID"): Amended] uint32 TTID;
+        [WmiDataId(6), read, Description("InfoClass"): Amended] uint32 InfoClass;
+};
+
+// --- Class: FileIo_SimpleOp ---
+[dynamic: ToInstance, EventType{65, 66, 73}, Description("File Simple Operation"): Amended, EventTypeName{"Cleanup", "Close", "Flush"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_SimpleOp : FileIo
+{
+        [WmiDataId(1), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(2), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(3), pointer, read, Description("FileKey"): Amended] uint32 FileKey;
+        [WmiDataId(4), read, Description("TTID"): Amended] uint32 TTID;
+};
+
+// --- Class: FltIoCompletion ---
+[dynamic: ToInstance, EventType{98, 99}, Description("Minifilter IO Completion"): Amended, EventTypeName{"PreOpCompletion", "PostOpCompletion"}: Amended, LOCALE("ms_409"): Amended]
+class FltIoCompletion : FileIo
+{
+        [WmiDataId(1), extension("WmiTime"), read, Description("Initial Time"): Amended] object InitialTime;
+        [WmiDataId(2), pointer, read, Description("RoutineAddr"): Amended] uint32 RoutineAddr;
+        [WmiDataId(3), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(4), pointer, read, Description("FileContext"): Amended] uint32 FileContext;
+        [WmiDataId(5), pointer, read, Description("Irp"): Amended] uint32 IrpPtr;
+        [WmiDataId(6), pointer, read, Description("CallbackData"): Amended] uint32 CallbackDataPtr;
+        [WmiDataId(7), read, Description("MajorFunction"): Amended] uint32 MajorFunction;
+};
+
+// --- Class: FileIo_DirEnum ---
+[dynamic: ToInstance, EventType{72, 77}, Description("File Dir Enum"): Amended, EventTypeName{"DirEnum", "DirNotify"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_DirEnum : FileIo
+{
+        [WmiDataId(1), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(2), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(3), pointer, read, Description("FileKey"): Amended] uint32 FileKey;
+        [WmiDataId(4), read, Description("TTID"): Amended] uint32 TTID;
+        [WmiDataId(5), read, Description("Length"): Amended] uint32 Length;
+        [WmiDataId(6), read, Description("InfoClass"): Amended] uint32 InfoClass;
+        [WmiDataId(7), read, Description("FileIndex"): Amended] uint32 FileIndex;
+        [WmiDataId(8), StringTermination("NullTerminated"), format("w"), read, Description("FileName"): Amended] string FileName;
+};
+
+// --- Class: FileIo_PathOperation ---
+[dynamic: ToInstance, EventType{79, 80, 81}, Description("File Path Operation"): Amended, EventTypeName{"DletePath", "RenamePath", "SetLinkPath"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_PathOperation : FileIo
+{
+        [WmiDataId(1), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(2), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(3), pointer, read, Description("FileKey"): Amended] uint32 FileKey;
+        [WmiDataId(4), pointer, read, Description("ExtraInfo"): Amended] uint32 ExtraInfo;
+        [WmiDataId(5), read, Description("TTID"): Amended] uint32 TTID;
+        [WmiDataId(6), read, Description("InfoClass"): Amended] uint32 InfoClass;
+        [WmiDataId(7), StringTermination("NullTerminated"), format("w"), read, Description("FileName"): Amended] string FileName;
+};
+
+// --- Class: FileIo_OpEnd ---
+[dynamic: ToInstance, EventType(76), Description("File Operation End"): Amended, EventTypeName("OperationEnd"): Amended, LOCALE("ms_409"): Amended]
+class FileIo_OpEnd : FileIo
+{
+        [WmiDataId(1), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(2), pointer, read, Description("ExtraInfo"): Amended] uint32 ExtraInfo;
+        [WmiDataId(3), read, Description("NtStatus"): Amended] uint32 NtStatus;
+};
+
+// --- Class: FileIo_V2 ---
+[dynamic: ToInstance, Guid("{90cbdc39-4a3e-11d1-84f4-0000f80464e3}"), EventVersion(2), Description("File Name"): Amended, DisplayName("FileIo"): Amended, LOCALE("ms_409"): Amended]
+class FileIo_V2 : MSNT_SystemTrace
+{
+};
+
+// --- Class: FileIo_V2_MapFile ---
+[dynamic: ToInstance, EventType{37, 38, 39, 40}, Description("MapFile"): Amended, EventTypeName{"MapFile", "UnmapFile", "MapFileDCStart", "MapFileDCEnd"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_V2_MapFile : FileIo_V2
+{
+        [WmiDataId(1), pointer, read, Description("ViewBase"): Amended] uint32 ViewBase;
+        [WmiDataId(2), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(3), format("x"), read, Description("MiscInfo"): Amended] uint64 MiscInfo;
+        [WmiDataId(4), extension("SizeT"), read, Description("ViewSize"): Amended] object ViewSize;
+        [WmiDataId(5), read, Description("ProcessId"): Amended] uint32 ProcessId;
+};
+
+// --- Class: FileIo_V2_DirEnum ---
+[dynamic: ToInstance, EventType{72, 77}, Description("File Dir Enum"): Amended, EventTypeName{"DirEnum", "DirNotify"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_V2_DirEnum : FileIo_V2
+{
+        [WmiDataId(1), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(2), pointer, read, Description("TTID"): Amended] uint32 TTID;
+        [WmiDataId(3), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(4), pointer, read, Description("FileKey"): Amended] uint32 FileKey;
+        [WmiDataId(5), read, Description("Length"): Amended] uint32 Length;
+        [WmiDataId(6), read, Description("InfoClass"): Amended] uint32 InfoClass;
+        [WmiDataId(7), read, Description("FileIndex"): Amended] uint32 FileIndex;
+        [WmiDataId(8), StringTermination("NullTerminated"), format("w"), read, Description("FileName"): Amended] string FileName;
+};
+
+// --- Class: FileIo_V2_OpEnd ---
+[dynamic: ToInstance, EventType(76), Description("File Operation End"): Amended, EventTypeName("OperationEnd"): Amended, LOCALE("ms_409"): Amended]
+class FileIo_V2_OpEnd : FileIo_V2
+{
+        [WmiDataId(1), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(2), pointer, read, Description("ExtraInfo"): Amended] uint32 ExtraInfo;
+        [WmiDataId(3), read, Description("NtStatus"): Amended] uint32 NtStatus;
+};
+
+// --- Class: FileIo_V2_SimpleOp ---
+[dynamic: ToInstance, EventType{65, 66, 73}, Description("File Simple Operation"): Amended, EventTypeName{"Cleanup", "Close", "Flush"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_V2_SimpleOp : FileIo_V2
+{
+        [WmiDataId(1), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(2), pointer, read, Description("TTID"): Amended] uint32 TTID;
+        [WmiDataId(3), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(4), pointer, read, Description("FileKey"): Amended] uint32 FileKey;
+};
+
+// --- Class: FileIo_V2_ReadWrite ---
+[dynamic: ToInstance, EventType{67, 68}, Description("File Read Write"): Amended, EventTypeName{"Read", "Write"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_V2_ReadWrite : FileIo_V2
+{
+        [WmiDataId(1), read, Description("Offset"): Amended] uint64 Offset;
+        [WmiDataId(2), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(3), pointer, read, Description("TTID"): Amended] uint32 TTID;
+        [WmiDataId(4), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(5), pointer, read, Description("FileKey"): Amended] uint32 FileKey;
+        [WmiDataId(6), read, Description("IoSize"): Amended] uint32 IoSize;
+        [WmiDataId(7), read, Description("IoFlags"): Amended] uint32 IoFlags;
+};
+
+// --- Class: FileIo_V2_Info ---
+[dynamic: ToInstance, EventType{69, 70, 71, 74, 75}, Description("File Information"): Amended, EventTypeName{"SetInfo", "Delete", "Rename", "QueryInfo", "FSControl"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_V2_Info : FileIo_V2
+{
+        [WmiDataId(1), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(2), pointer, read, Description("TTID"): Amended] uint32 TTID;
+        [WmiDataId(3), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(4), pointer, read, Description("FileKey"): Amended] uint32 FileKey;
+        [WmiDataId(5), pointer, read, Description("ExtraInfo"): Amended] uint32 ExtraInfo;
+        [WmiDataId(6), read, Description("InfoClass"): Amended] uint32 InfoClass;
+};
+
+// --- Class: FileIo_V2_Name ---
+[dynamic: ToInstance, EventType{0, 32, 35, 36}, Description("File Name"): Amended, EventTypeName{"Name", "FileCreate", "FileDelete", "FileRundown"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_V2_Name : FileIo_V2
+{
+        [WmiDataId(1), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(2), StringTermination("NullTerminated"), format("w"), read, Description("FileName"): Amended] string FileName;
+};
+
+// --- Class: FileIo_V2_Create ---
+[dynamic: ToInstance, EventType(64), Description("File Create"): Amended, EventTypeName("Create"): Amended, LOCALE("ms_409"): Amended]
+class FileIo_V2_Create : FileIo_V2
+{
+        [WmiDataId(1), pointer, read, Description("IrpPtr"): Amended] uint32 IrpPtr;
+        [WmiDataId(2), pointer, read, Description("TTID"): Amended] uint32 TTID;
+        [WmiDataId(3), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(4), read, Description("CreateOptions"): Amended] uint32 CreateOptions;
+        [WmiDataId(5), read, Description("FileAttributes"): Amended] uint32 FileAttributes;
+        [WmiDataId(6), read, Description("ShareAccess"): Amended] uint32 ShareAccess;
+        [WmiDataId(7), StringTermination("NullTerminated"), format("w"), read, Description("OpenPath"): Amended] string OpenPath;
+};
+
+// --- Class: FileIo_V0 ---
+[dynamic: ToInstance, Guid("{90cbdc39-4a3e-11d1-84f4-0000f80464e3}"), EventVersion(0), Description("File Name"): Amended, DisplayName("FileIo"): Amended, LOCALE("ms_409"): Amended]
+class FileIo_V0 : MSNT_SystemTrace
+{
+};
+
+// --- Class: FileIo_V0_Name ---
+[dynamic: ToInstance, EventType(0), Description("File Name"): Amended, EventTypeName("Name"): Amended, LOCALE("ms_409"): Amended]
+class FileIo_V0_Name : FileIo_V0
+{
+        [WmiDataId(1), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(2), StringTermination("NullTerminated"), format("w"), read, Description("FileName"): Amended] string FileName;
+};
+
+// --- Class: FileIo_V1 ---
+[dynamic: ToInstance, Guid("{90cbdc39-4a3e-11d1-84f4-0000f80464e3}"), EventVersion(1), Description("File Name"): Amended, DisplayName("FileIo"): Amended, LOCALE("ms_409"): Amended]
+class FileIo_V1 : MSNT_SystemTrace
+{
+};
+
+// --- Class: FileIo_V1_Name ---
+[dynamic: ToInstance, EventType{0, 32}, Description("File Name"): Amended, EventTypeName{"Name", "FileCreate"}: Amended, LOCALE("ms_409"): Amended]
+class FileIo_V1_Name : FileIo_V1
+{
+        [WmiDataId(1), pointer, read, Description("FileObject"): Amended] uint32 FileObject;
+        [WmiDataId(2), StringTermination("NullTerminated"), format("w"), read, Description("FileName"): Amended] string FileName;
+};
+
+// $locator = New-Object -ComObject WbemScripting.SWbemLocator
+// $service = $locator.ConnectServer(".", "root\wmi")
+
+// # 0x20000 = wbemFlagUseAmendedQualifiers
+// # 0x10    = wbemFlagReturnImmediately
+// $flags = 0x20000 -bor 0x10
+
+// # Query matching FileIo, FileIo_V1, FileIo_V2 and all their subclasses
+// $wql = @"
+// SELECT * FROM meta_class
+// WHERE __CLASS LIKE 'FileIo%'
+//    OR __SUPERCLASS LIKE 'FileIo%'
+// "@
+
+// $classes = $service.ExecQuery($wql, "WQL", $flags)
+
+// foreach ($c in $classes) {
+//     Write-Output "// --- Class: $($c.Path_.Class) ---"
+//     Write-Output $c.GetObjectText_(0)
+// }
