@@ -1,12 +1,12 @@
 mod events;
-mod trace_session;
 mod file_ops;
+mod trace_session;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use events::{FileIoEvent, EVENT_REGISTRY};
+use events::{EVENT_REGISTRY, FileIoEvent};
 use trace_session::{KernelTraceSession, TraceConfig};
 
 /// Test configuration for a single flag/mask combination
@@ -33,7 +33,8 @@ fn main() {
     log::info!("");
 
     // Shared storage for results
-    let results: Arc<Mutex<HashMap<String, Vec<FileIoEvent>>>> = Arc::new(Mutex::new(HashMap::new()));
+    let results: Arc<Mutex<HashMap<String, Vec<FileIoEvent>>>> =
+        Arc::new(Mutex::new(HashMap::new()));
 
     // Print all known events at startup
     log::trace!("Known FileIo events:");
@@ -44,12 +45,25 @@ fn main() {
     // Run tests sequentially
     for (i, config) in test_configs.iter().enumerate() {
         log::info!("");
-        log::info!("=== Test {}/{}: {} ===", i + 1, test_configs.len(), config.name);
-        log::info!("  EnableFlags: {:?}", config.enable_flags.map(|f| format!("0x{:08X}", f)));
-        log::info!("  GroupMask: {:?}", config.group_mask.map(|m| {
-            format!("[{:08X}, {:08X}, {:08X}, {:08X}, {:08X}, {:08X}, {:08X}, {:08X}]",
-                m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7])
-        }));
+        log::info!(
+            "=== Test {}/{}: {} ===",
+            i + 1,
+            test_configs.len(),
+            config.name
+        );
+        log::info!(
+            "  EnableFlags: {:?}",
+            config.enable_flags.map(|f| format!("0x{:08X}", f))
+        );
+        log::info!(
+            "  GroupMask: {:?}",
+            config.group_mask.map(|m| {
+                format!(
+                    "[{:08X}, {:08X}, {:08X}, {:08X}, {:08X}, {:08X}, {:08X}, {:08X}]",
+                    m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7]
+                )
+            })
+        );
 
         let collected_events = run_single_test(config);
 
@@ -63,14 +77,27 @@ fn main() {
         log::info!("  Discovered {} events:", collected_events.len());
         let mut event_counts: HashMap<(u16, u8), usize> = HashMap::new();
         for event in &collected_events {
-            *event_counts.entry((event.event_id, event.version)).or_insert(0) += 1;
+            *event_counts
+                .entry((event.event_id, event.version))
+                .or_insert(0) += 1;
         }
         for ((id, version), count) in &event_counts {
             if let Some(known) = EVENT_REGISTRY.get(&(*id, *version)) {
-                log::info!("    ID={}, Version={}, Class={}, Name={}, Count={}",
-                    id, version, known.class_name, known.event_name, count);
+                log::info!(
+                    "    ID={}, Version={}, Class={}, Name={}, Count={}",
+                    id,
+                    version,
+                    known.class_name,
+                    known.event_name,
+                    count
+                );
             } else {
-                log::warn!("    ID={}, Version={} (UNKNOWN EVENT), Count={}", id, version, count);
+                log::warn!(
+                    "    ID={}, Version={} (UNKNOWN EVENT), Count={}",
+                    id,
+                    version,
+                    count
+                );
             }
         }
 
@@ -184,21 +211,27 @@ fn build_test_configs() -> Vec<TestConfig> {
     configs.push(TestConfig {
         name: "ALL_FLT_MASKS".to_string(),
         enable_flags: None,
-        group_mask: Some(build_group_mask(0x80080000 | 0x80100000 | 0x80200000 | 0x80400000)),
+        group_mask: Some(build_group_mask(
+            0x80080000 | 0x80100000 | 0x80200000 | 0x80400000,
+        )),
     });
 
     // Combination: FILE_IO_INIT + FLT masks
     configs.push(TestConfig {
         name: "FILE_IO_INIT + ALL_FLT_MASKS".to_string(),
         enable_flags: Some(0x04000000),
-        group_mask: Some(build_group_mask(0x80080000 | 0x80100000 | 0x80200000 | 0x80400000)),
+        group_mask: Some(build_group_mask(
+            0x80080000 | 0x80100000 | 0x80200000 | 0x80400000,
+        )),
     });
 
     // Comprehensive test: all FileIo flags + all FLT masks
     configs.push(TestConfig {
         name: "ALL_FILEIO_FLAGS + ALL_FLT_MASKS".to_string(),
         enable_flags: Some(0x00000200 | 0x02000000 | 0x04000000 | 0x00008000),
-        group_mask: Some(build_group_mask(0x80080000 | 0x80100000 | 0x80200000 | 0x80400000)),
+        group_mask: Some(build_group_mask(
+            0x80080000 | 0x80100000 | 0x80200000 | 0x80400000,
+        )),
     });
 
     configs
@@ -217,7 +250,10 @@ fn build_group_mask(mask_value: u32) -> [u32; 8] {
 fn run_single_test(config: &TestConfig) -> Vec<FileIoEvent> {
     let collected_events: Arc<Mutex<Vec<FileIoEvent>>> = Arc::new(Mutex::new(Vec::new()));
 
-    let session_name = format!("FileIoTest-{}", config.name.replace(" ", "_").replace("+", "_"));
+    let session_name = format!(
+        "FileIoTest-{}",
+        config.name.replace(" ", "_").replace("+", "_")
+    );
 
     // Build trace configuration
     let trace_config = TraceConfig {
@@ -236,7 +272,7 @@ fn run_single_test(config: &TestConfig) -> Vec<FileIoEvent> {
     };
 
     // Start the trace and get the process handle
-    let _trace_handle = match session.start() {
+    let _trace_handle = match session.start(collected_events.clone()) {
         Ok(h) => h,
         Err(e) => {
             log::error!("Failed to start trace: {:?}", e);
@@ -307,7 +343,12 @@ fn print_summary(results: &HashMap<String, Vec<FileIoEvent>>) {
 
     for ((id, version), config_names) in &sorted_events {
         if let Some(known) = EVENT_REGISTRY.get(&(*id, *version)) {
-            log::info!("Event: {} (ID={}, Version={})", known.event_name, id, version);
+            log::info!(
+                "Event: {} (ID={}, Version={})",
+                known.event_name,
+                id,
+                version
+            );
             log::info!("  Class: {}", known.class_name);
             log::info!("  Enabled by:");
             for name in config_names {

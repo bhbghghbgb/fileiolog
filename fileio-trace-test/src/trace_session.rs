@@ -1,10 +1,10 @@
 use std::ptr;
 use std::sync::{Arc, Mutex};
 
-use ferrisetw::provider::*;
-use ferrisetw::trace::*;
-use ferrisetw::schema_locator::SchemaLocator;
 use ferrisetw::EventRecord;
+use ferrisetw::provider::*;
+use ferrisetw::schema_locator::SchemaLocator;
+use ferrisetw::trace::*;
 use windows::Win32::System::Diagnostics::Etw::{
     self, CONTROLTRACE_HANDLE, EVENT_TRACE_PROPERTIES, PROCESSTRACE_HANDLE, WNODE_FLAG_TRACED_GUID,
 };
@@ -43,11 +43,13 @@ impl KernelTraceSession {
         })
     }
 
-    /// Start the trace session and return the trace handle for processing
-    pub fn start(&mut self) -> Result<PROCESSTRACE_HANDLE, Box<dyn std::error::Error>> {
-        let collected_events: Arc<Mutex<Vec<events::FileIoEvent>>> =
-            Arc::new(Mutex::new(Vec::new()));
-        let events_clone = collected_events.clone();
+    /// Start the trace session and return the trace handle for processing.
+    /// Events will be pushed to the provided `collected_events` vector.
+    pub fn start(
+        &mut self,
+        collected_events: Arc<Mutex<Vec<events::FileIoEvent>>>,
+    ) -> Result<PROCESSTRACE_HANDLE, Box<dyn std::error::Error>> {
+        let events_clone = collected_events;
 
         // Create a kernel provider with the FILE_IO_GUID and the specified flags
         // The library will OR these flags into the trace's EnableFlags
