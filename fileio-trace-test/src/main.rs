@@ -95,6 +95,7 @@ fn build_test_configs() -> Vec<TestConfig> {
 
     // EVENT_TRACE_FLAG_DISK_FILE_IO (0x00000200)
     // Official docs say: requires DISK_IO, enables FileIo_Name
+    // Note: DISK_FILE_IO may need DISK_IO (0x00000100) to work properly
     configs.push(TestConfig {
         name: "EVENT_TRACE_FLAG_DISK_FILE_IO".to_string(),
         enable_flags: Some(0x00000200),
@@ -117,6 +118,15 @@ fn build_test_configs() -> Vec<TestConfig> {
         group_mask: None,
     });
 
+    // EVENT_TRACE_FLAG_VAMAP (0x00008000)
+    // Likely enables MapFile events (V2+)
+    // Uses FILE_IO_GUID according to ferrisetw kernel_providers
+    configs.push(TestConfig {
+        name: "EVENT_TRACE_FLAG_VAMAP".to_string(),
+        enable_flags: Some(0x00008000),
+        group_mask: None,
+    });
+
     // Combination: FILE_IO_INIT + FILE_IO
     configs.push(TestConfig {
         name: "FILE_IO_INIT + FILE_IO".to_string(),
@@ -124,10 +134,10 @@ fn build_test_configs() -> Vec<TestConfig> {
         group_mask: None,
     });
 
-    // Combination: All three FileIo flags
+    // Combination: All standard FileIo flags
     configs.push(TestConfig {
-        name: "DISK_FILE_IO + FILE_IO + FILE_IO_INIT".to_string(),
-        enable_flags: Some(0x00000200 | 0x02000000 | 0x04000000),
+        name: "DISK_FILE_IO + FILE_IO + FILE_IO_INIT + VAMAP".to_string(),
+        enable_flags: Some(0x00000200 | 0x02000000 | 0x04000000 | 0x00008000),
         group_mask: None,
     });
 
@@ -162,6 +172,14 @@ fn build_test_configs() -> Vec<TestConfig> {
         group_mask: Some(build_group_mask(0x80400000)),
     });
 
+    // PERF_VAMAP (0x00008000) - MapFile/UnmapFile events
+    // Same value as EVENT_TRACE_FLAG_VAMAP but set via PERFINFO_GROUPMASK
+    configs.push(TestConfig {
+        name: "PERF_VAMAP".to_string(),
+        enable_flags: None,
+        group_mask: Some(build_group_mask(0x00008000)),
+    });
+
     // All FLT masks combined
     configs.push(TestConfig {
         name: "ALL_FLT_MASKS".to_string(),
@@ -179,7 +197,7 @@ fn build_test_configs() -> Vec<TestConfig> {
     // Comprehensive test: all FileIo flags + all FLT masks
     configs.push(TestConfig {
         name: "ALL_FILEIO_FLAGS + ALL_FLT_MASKS".to_string(),
-        enable_flags: Some(0x00000200 | 0x02000000 | 0x04000000),
+        enable_flags: Some(0x00000200 | 0x02000000 | 0x04000000 | 0x00008000),
         group_mask: Some(build_group_mask(0x80080000 | 0x80100000 | 0x80200000 | 0x80400000)),
     });
 

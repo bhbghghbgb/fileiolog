@@ -1,10 +1,10 @@
 use std::ptr;
 use std::sync::{Arc, Mutex};
 
-use ferrisetw::EventRecord;
 use ferrisetw::provider::*;
-use ferrisetw::schema_locator::SchemaLocator;
 use ferrisetw::trace::*;
+use ferrisetw::schema_locator::SchemaLocator;
+use ferrisetw::EventRecord;
 use windows::Win32::System::Diagnostics::Etw::{
     self, CONTROLTRACE_HANDLE, EVENT_TRACE_PROPERTIES, PROCESSTRACE_HANDLE, WNODE_FLAG_TRACED_GUID,
 };
@@ -18,7 +18,9 @@ const FILE_IO_GUID: GUID = GUID::from_u128(0x90cbdc39_4a3e_11d1_84f4_0000f80464e
 /// Configuration for a trace session
 pub struct TraceConfig {
     pub session_name: String,
+    /// EnableFlags to set via the kernel provider (OR'd into the trace)
     pub enable_flags: Option<u32>,
+    /// Optional PERFINFO_GROUPMASK to set via TraceSetInformation (for extended masks)
     pub group_mask: Option<[u32; 8]>,
 }
 
@@ -47,9 +49,14 @@ impl KernelTraceSession {
             Arc::new(Mutex::new(Vec::new()));
         let events_clone = collected_events.clone();
 
-        // Create a provider with the FILE_IO_GUID
-        // We use a custom provider with no flags since we're testing specific flags
-        let provider = Provider::by_guid(FILE_IO_GUID)
+        // Create a kernel provider with the FILE_IO_GUID and the specified flags
+        // The library will OR these flags into the trace's EnableFlags
+        let kernel_provider = kernel_providers::KernelProvider::new(
+            FILE_IO_GUID,
+            self.config.enable_flags.unwrap_or(0),
+        );
+
+        let provider = Provider::kernel(&kernel_provider)
             .level(0xFF) // LogAll
             .any(0) // Match all keywords
             .all(0)
@@ -78,7 +85,7 @@ impl KernelTraceSession {
             )
             .build();
 
-        // Build the kernel trace with the appropriate flags
+        // Build the kernel trace with stop_if_exist to handle lingering sessions
         let builder = KernelTrace::new()
             .named(self.config.session_name.clone())
             .enable(provider)
@@ -95,12 +102,8 @@ impl KernelTraceSession {
         let control_handle = self.query_control_handle()?;
         self.control_handle = Some(control_handle);
 
-        // If we have enable_flags, set them via ControlTraceW
-        if let Some(flags) = self.config.enable_flags {
-            self.set_enable_flags(flags)?;
-        }
-
         // If we have a group mask, set it via TraceSetInformation
+        // This is for extended masks that can't be set via EnableFlags
         if let Some(mask) = self.config.group_mask {
             self.set_group_mask(mask)?;
         }
@@ -195,60 +198,12 @@ impl KernelTraceSession {
         })
     }
 
-    /// Set EnableFlags on the running session via ControlTraceW UPDATE
-    fn set_enable_flags(&self, flags: u32) -> Result<(), Box<dyn std::error::Error>> {
-        let control_handle = self.control_handle.ok_or("Control handle not available")?;
-        let name_wide: Vec<u16> = self
-            .config
-            .session_name
-            .encode_utf16()
-            .chain(std::iter::once(0))
-            .collect();
-        let header_size = std::mem::size_of::<EVENT_TRACE_PROPERTIES>();
-        let name_buf_size = (200 + 1) * 2;
-        let total_size = header_size + name_buf_size;
-
-        let mut buffer = vec![0u8; total_size];
-
-        let props = unsafe { &mut *(buffer.as_mut_ptr() as *mut EVENT_TRACE_PROPERTIES) };
-        props.Wnode.BufferSize = total_size as u32;
-        props.Wnode.Flags = WNODE_FLAG_TRACED_GUID;
-        props.Wnode.Guid = GUID::zeroed();
-        props.LoggerNameOffset = header_size as u32;
-        props.LogFileNameOffset = 0;
-        props.EnableFlags = Etw::EVENT_TRACE_FLAG(flags);
-
-        let name_ptr = unsafe { buffer.as_mut_ptr().add(header_size) as *mut u16 };
-        unsafe {
-            ptr::copy_nonoverlapping(name_wide.as_ptr(), name_ptr, name_wide.len());
-        }
-
-        let result = unsafe {
-            Etw::ControlTraceW(
-                control_handle,
-                PCWSTR::null(), // Use handle, not name
-                props as *mut EVENT_TRACE_PROPERTIES,
-                Etw::EVENT_TRACE_CONTROL_UPDATE,
-            )
-        }
-        .ok();
-
-        if let Err(e) = result {
-            return Err(format!("ControlTraceW UPDATE (EnableFlags) failed: {:?}", e).into());
-        }
-
-        log::debug!("Set EnableFlags to 0x{:08X}", flags);
-        Ok(())
-    }
-
     /// Set PERFINFO_GROUPMASK via TraceSetInformation
     fn set_group_mask(&self, masks: [u32; 8]) -> Result<(), Box<dyn std::error::Error>> {
         let control_handle = self.control_handle.ok_or("Control handle not available")?;
 
         // PERFINFO_GROUPMASK is 8 ULONGs = 32 bytes
-        // We need to pass the TraceSystemTraceEnableFlagsInfo class (0x04)
-        // According to Geoff Chappell, we use TraceSystemTraceEnableFlagsInfo (4)
-        // but with the PERFINFO_GROUPMASK structure
+        // We use TraceSystemTraceEnableFlagsInfo (4) to set the extended mask
 
         // Build the PERFINFO_GROUPMASK structure
         let mut group_mask_data = [0u32; 8];

@@ -90,6 +90,7 @@
 | EVENT_TRACE_FLAG_DISK_FILE_IO | 0x00000200 | FileIo_Name (requires DISK_IO) |
 | EVENT_TRACE_FLAG_FILE_IO | 0x02000000 | FileIo_OpEnd |
 | EVENT_TRACE_FLAG_FILE_IO_INIT | 0x04000000 | FileIo_Create, FileIo_DirEnum, FileIo_Info, FileIo_ReadWrite, FileIo_SimpleOp |
+| EVENT_TRACE_FLAG_VAMAP | 0x00008000 | MapFile/UnmapFile events (V2+) |
 
 ## PERFINFO_GROUPMASK (FileIo-related)
 
@@ -99,3 +100,4 @@
 | PERF_FLT_IO | 0x80100000 | FltIoCompletion (PreOpCompletion, PostOpCompletion) |
 | PERF_FLT_FASTIO | 0x80200000 | FastIO events |
 | PERF_FLT_IO_FAILURE | 0x80400000 | FltIoFailure (PreOpFailure, PostOpFailure) |
+| PERF_VAMAP | 0x00008000 | MapFile/UnmapFile events (same as EVENT_TRACE_FLAG_VAMAP) |
