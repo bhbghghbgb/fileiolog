@@ -75,17 +75,17 @@ fn main() {
 
         // Print discovered events
         log::info!("  Discovered {} events:", collected_events.len());
-        let mut event_counts: HashMap<(u16, u8), usize> = HashMap::new();
+        let mut event_counts: HashMap<(u8, u8), usize> = HashMap::new();
         for event in &collected_events {
             *event_counts
-                .entry((event.event_id, event.version))
+                .entry((event.opcode, event.version))
                 .or_insert(0) += 1;
         }
-        for ((id, version), count) in &event_counts {
-            if let Some(known) = EVENT_REGISTRY.get(&(*id, *version)) {
+        for ((opcode, version), count) in &event_counts {
+            if let Some(known) = EVENT_REGISTRY.get(&(*opcode, *version)) {
                 log::info!(
-                    "    ID={}, Version={}, Class={}, Name={}, Count={}",
-                    id,
+                    "    Opcode={}, Version={}, Class={}, Name={}, Count={}",
+                    opcode,
                     version,
                     known.class_name,
                     known.event_name,
@@ -93,8 +93,8 @@ fn main() {
                 );
             } else {
                 log::warn!(
-                    "    ID={}, Version={} (UNKNOWN EVENT), Count={}",
-                    id,
+                    "    Opcode={}, Version={} (UNKNOWN EVENT), Count={}",
+                    opcode,
                     version,
                     count
                 );
@@ -324,11 +324,11 @@ fn run_single_test(config: &TestConfig) -> Vec<FileIoEvent> {
 /// Print summary of all test results
 fn print_summary(results: &HashMap<String, Vec<FileIoEvent>>) {
     // Collect all unique event types seen across all tests
-    let mut all_events: HashMap<(u16, u8), Vec<String>> = HashMap::new();
+    let mut all_events: HashMap<(u8, u8), Vec<String>> = HashMap::new();
 
     for (config_name, events) in results {
         for event in events {
-            let key = (event.event_id, event.version);
+            let key = (event.opcode, event.version);
             all_events.entry(key).or_default().push(config_name.clone());
         }
     }
@@ -337,16 +337,16 @@ fn print_summary(results: &HashMap<String, Vec<FileIoEvent>>) {
     log::info!("Event-to-Flag/Mask Mapping:");
     log::info!("==========================");
 
-    // Sort by event ID and version
+    // Sort by opcode and version
     let mut sorted_events: Vec<_> = all_events.into_iter().collect();
-    sorted_events.sort_by_key(|((id, ver), _)| (*id, *ver));
+    sorted_events.sort_by_key(|((opcode, ver), _)| (*opcode, *ver));
 
-    for ((id, version), config_names) in &sorted_events {
-        if let Some(known) = EVENT_REGISTRY.get(&(*id, *version)) {
+    for ((opcode, version), config_names) in &sorted_events {
+        if let Some(known) = EVENT_REGISTRY.get(&(*opcode, *version)) {
             log::info!(
-                "Event: {} (ID={}, Version={})",
+                "Event: {} (Opcode={}, Version={})",
                 known.event_name,
-                id,
+                opcode,
                 version
             );
             log::info!("  Class: {}", known.class_name);
@@ -355,7 +355,7 @@ fn print_summary(results: &HashMap<String, Vec<FileIoEvent>>) {
                 log::info!("    - {}", name);
             }
         } else {
-            log::warn!("Unknown Event: ID={}, Version={}", id, version);
+            log::warn!("Unknown Event: Opcode={}, Version={}", opcode, version);
             log::warn!("  Enabled by:");
             for name in config_names {
                 log::warn!("    - {}", name);

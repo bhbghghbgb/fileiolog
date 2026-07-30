@@ -64,6 +64,7 @@ impl KernelTraceSession {
             .all(0)
             .add_callback(
                 move |record: &EventRecord, _schema_locator: &SchemaLocator| {
+                    let opcode = record.opcode();
                     let event_id = record.event_id();
                     let version = record.version();
                     let timestamp = record.raw_timestamp() as u64;
@@ -71,11 +72,12 @@ impl KernelTraceSession {
                     let thread_id = record.thread_id();
 
                     // Log the event
-                    events::log_event(event_id, version, timestamp, process_id, thread_id);
+                    events::log_event(opcode, event_id, version, timestamp, process_id, thread_id);
 
                     // Store the event
                     if let Ok(mut events) = events_clone.lock() {
                         events.push(events::FileIoEvent {
+                            opcode,
                             event_id,
                             version,
                             timestamp,
