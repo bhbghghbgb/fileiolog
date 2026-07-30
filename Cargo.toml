@@ -1,7 +1,3 @@
-[workspace]
-members = [".", "etw-flag-test"]
-resolver = "3"
-
 [package]
 name = "fileiolog"
 version = "0.1.0"
