@@ -323,13 +323,17 @@ fn run_single_test(config: &TestConfig) -> Vec<FileIoEvent> {
 
 /// Print summary of all test results
 fn print_summary(results: &HashMap<String, Vec<FileIoEvent>>) {
-    // Collect all unique event types seen across all tests
-    let mut all_events: HashMap<(u8, u8), Vec<String>> = HashMap::new();
+    // Collect all unique event types and which configs produced them
+    let mut all_events: HashMap<(u8, u8), HashMap<String, usize>> = HashMap::new();
 
     for (config_name, events) in results {
         for event in events {
             let key = (event.opcode, event.version);
-            all_events.entry(key).or_default().push(config_name.clone());
+            *all_events
+                .entry(key)
+                .or_default()
+                .entry(config_name.clone())
+                .or_insert(0) += 1;
         }
     }
 
@@ -341,7 +345,7 @@ fn print_summary(results: &HashMap<String, Vec<FileIoEvent>>) {
     let mut sorted_events: Vec<_> = all_events.into_iter().collect();
     sorted_events.sort_by_key(|((opcode, ver), _)| (*opcode, *ver));
 
-    for ((opcode, version), config_names) in &sorted_events {
+    for ((opcode, version), config_counts) in &sorted_events {
         if let Some(known) = EVENT_REGISTRY.get(&(*opcode, *version)) {
             log::info!(
                 "Event: {} (Opcode={}, Version={})",
@@ -351,14 +355,14 @@ fn print_summary(results: &HashMap<String, Vec<FileIoEvent>>) {
             );
             log::info!("  Class: {}", known.class_name);
             log::info!("  Enabled by:");
-            for name in config_names {
-                log::info!("    - {}", name);
+            for (name, count) in config_counts {
+                log::info!("    - {} (count={})", name, count);
             }
         } else {
             log::warn!("Unknown Event: Opcode={}, Version={}", opcode, version);
             log::warn!("  Enabled by:");
-            for name in config_names {
-                log::warn!("    - {}", name);
+            for (name, count) in config_counts {
+                log::warn!("    - {} (count={})", name, count);
             }
         }
     }
