@@ -147,17 +147,42 @@ impl KernelTraceSession {
     }
 
     /// Stop the trace session
+    ///
+    /// Sends EVENT_TRACE_CONTROL_STOP directly via the control handle,
+    /// allowing the ProcessTrace thread to process remaining events
+    /// (including rundown) before it naturally exits.
+    ///
+    /// We must NOT call trace.stop() or rely on KernelTrace::drop() here,
+    /// because ferrisetw's non_consuming_stop calls CloseTrace *before*
+    /// ControlTrace(STOP), which aborts the background thread and drops
+    /// all rundown events.
     pub fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(trace) = self.trace.take() {
-            trace
-                .stop()
-                .map_err(|e| format!("Trace stop failed: {:?}", e))?;
+        if let Some(control_handle) = self.control_handle {
+            let mut buffer = self.build_trace_properties();
+            let props = unsafe { &mut *(buffer.as_mut_ptr() as *mut EVENT_TRACE_PROPERTIES) };
+
+            unsafe {
+                windows::Win32::System::Diagnostics::Etw::ControlTraceW(
+                    control_handle,
+                    windows::core::PCWSTR::null(),
+                    props as *mut EVENT_TRACE_PROPERTIES,
+                    windows::Win32::System::Diagnostics::Etw::EVENT_TRACE_CONTROL_STOP,
+                )
+            }
+            .ok()
+            .map_err(|e| format!("ControlTraceW STOP failed: {:?}", e))?;
         }
+
+        // Drop the trace object. Its Drop impl will call close_trace +
+        // control_trace(STOP), but the session is already stopped so
+        // control_trace will harmlessly fail.
+        self.trace.take();
+
         Ok(())
     }
 
-    /// Query the control handle by calling ControlTraceW with QUERY
-    fn query_control_handle(&self) -> Result<CONTROLTRACE_HANDLE, Box<dyn std::error::Error>> {
+    /// Build an EVENT_TRACE_PROPERTIES buffer populated with the session name.
+    fn build_trace_properties(&self) -> Vec<u8> {
         let name_wide: Vec<u16> = self
             .config
             .session_name
@@ -182,10 +207,22 @@ impl KernelTraceSession {
             ptr::copy_nonoverlapping(name_wide.as_ptr(), name_ptr, name_wide.len());
         }
 
+        buffer
+    }
+
+    /// Query the control handle by calling ControlTraceW with QUERY
+    fn query_control_handle(&self) -> Result<CONTROLTRACE_HANDLE, Box<dyn std::error::Error>> {
+        let mut buffer = self.build_trace_properties();
+
+        let props = unsafe { &mut *(buffer.as_mut_ptr() as *mut EVENT_TRACE_PROPERTIES) };
+        let name_ptr = unsafe {
+            buffer.as_mut_ptr().add(props.LoggerNameOffset as usize) as *const u16
+        };
+
         let result = unsafe {
             Etw::ControlTraceW(
                 CONTROLTRACE_HANDLE { Value: 0 },
-                PCWSTR::from_raw(name_ptr as *const u16),
+                PCWSTR::from_raw(name_ptr),
                 props as *mut EVENT_TRACE_PROPERTIES,
                 Etw::EVENT_TRACE_CONTROL_QUERY,
             )

@@ -1,159 +1,168 @@
 FileCreate [FileIo_V2_Name] (Opcode=32, Version=2)
-    COMBO:ALL_EF+ALL_FLT: 1 this run, 2 cumulative
-    COMBO:ALL_EF_FLAGS: 62 this run, 101 cumulative
-    EF:DISK_FILE_IO: 59 this run, 98 cumulative
-    GM:PERF_FILENAME: 45 this run, 87 cumulative
+    COMBO:ALL_EF+ALL_FLT: 1 this run, 1 cumulative
+    COMBO:ALL_EF_FLAGS: 102 this run, 102 cumulative
+    EF:DISK_FILE_IO: 465 this run, 465 cumulative
+    GM:PERF_FILENAME: 102 this run, 102 cumulative
 
 FileDelete [FileIo_V2_Name] (Opcode=35, Version=2)
-    COMBO:ALL_EF_FLAGS: 43 this run, 70 cumulative
-    EF:DISK_FILE_IO: 49 this run, 64 cumulative
-    GM:PERF_FILENAME: 25 this run, 55 cumulative
+    COMBO:ALL_EF_FLAGS: 85 this run, 85 cumulative
+    EF:DISK_FILE_IO: 69 this run, 69 cumulative
+    GM:PERF_FILENAME: 86 this run, 86 cumulative
 
 FileRundown [FileIo_V2_Name] (Opcode=36, Version=2)
-    COMBO:ALL_EF+ALL_FLT: 27852 this run, 56555 cumulative
+    COMBO:ALL_EF+ALL_FLT: 27802 this run, 27802 cumulative
+    COMBO:ALL_EF_FLAGS: 20552 this run, 20552 cumulative
+    EF:DISK_FILE_IO: 51774 this run, 51774 cumulative
+    GM:PERF_FILENAME: 45083 this run, 45083 cumulative
 
 UNKNOWN (Opcode=37, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 2 this run, 4 cumulative
-    COMBO:ALL_EF_FLAGS: 1255 this run, 1976 cumulative
-    EF:VAMAP: 717 this run, 1399 cumulative
-    GM:PERF_VAMAP: 495 this run, 1029 cumulative
+    COMBO:ALL_EF+ALL_FLT: 2 this run, 2 cumulative
+    COMBO:ALL_EF_FLAGS: 675 this run, 675 cumulative
+    EF:VAMAP: 687 this run, 687 cumulative
+    GM:PERF_VAMAP: 876 this run, 876 cumulative
 
 UNKNOWN (Opcode=38, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 2 this run, 4 cumulative
-    COMBO:ALL_EF_FLAGS: 1283 this run, 1997 cumulative
-    EF:VAMAP: 713 this run, 1401 cumulative
-    GM:PERF_VAMAP: 497 this run, 1025 cumulative
+    COMBO:ALL_EF+ALL_FLT: 2 this run, 2 cumulative
+    COMBO:ALL_EF_FLAGS: 675 this run, 675 cumulative
+    EF:VAMAP: 689 this run, 689 cumulative
+    GM:PERF_VAMAP: 878 this run, 878 cumulative
 
 UNKNOWN (Opcode=39, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 16573 this run, 33274 cumulative
-    COMBO:ALL_EF_FLAGS: 16704 this run, 33398 cumulative
-    EF:VAMAP: 16700 this run, 33384 cumulative
-    GM:PERF_VAMAP: 16705 this run, 33400 cumulative
+    COMBO:ALL_EF+ALL_FLT: 17165 this run, 17165 cumulative
+    COMBO:ALL_EF_FLAGS: 17245 this run, 17245 cumulative
+    EF:VAMAP: 17249 this run, 17249 cumulative
+    GM:PERF_VAMAP: 17245 this run, 17245 cumulative
 
 UNKNOWN (Opcode=40, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 16573 this run, 33274 cumulative
+    COMBO:ALL_EF+ALL_FLT: 17165 this run, 17165 cumulative
+    COMBO:ALL_EF_FLAGS: 17245 this run, 17245 cumulative
+    EF:VAMAP: 4771 this run, 4771 cumulative
+    GM:PERF_VAMAP: 5096 this run, 5096 cumulative
 
 Create [FileIo_Create] (Opcode=64, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 1 this run, 2 cumulative
-    COMBO:ALL_EF_FLAGS: 348 this run, 595 cumulative
-    EF:FILE_IO_INIT: 272 this run, 516 cumulative
-    GM:PERF_FILE_IO_INIT: 296 this run, 596 cumulative
+    COMBO:ALL_EF+ALL_FLT: 1 this run, 1 cumulative
+    COMBO:ALL_EF_FLAGS: 911 this run, 911 cumulative
+    EF:FILE_IO_INIT: 1183 this run, 1183 cumulative
+    GM:PERF_FILE_IO_INIT: 936 this run, 936 cumulative
 
 Cleanup [FileIo_SimpleOp] (Opcode=65, Version=3)
-    COMBO:ALL_EF_FLAGS: 289 this run, 483 cumulative
-    EF:FILE_IO_INIT: 218 this run, 409 cumulative
-    GM:PERF_FILE_IO_INIT: 237 this run, 463 cumulative
+    COMBO:ALL_EF_FLAGS: 766 this run, 766 cumulative
+    EF:FILE_IO_INIT: 1023 this run, 1023 cumulative
+    GM:PERF_FILE_IO_INIT: 795 this run, 795 cumulative
 
 Close [FileIo_SimpleOp] (Opcode=66, Version=3)
-    COMBO:ALL_EF_FLAGS: 320 this run, 536 cumulative
-    EF:FILE_IO_INIT: 269 this run, 468 cumulative
-    GM:PERF_FILE_IO_INIT: 281 this run, 539 cumulative
+    COMBO:ALL_EF_FLAGS: 798 this run, 798 cumulative
+    EF:FILE_IO_INIT: 1061 this run, 1061 cumulative
+    GM:PERF_FILE_IO_INIT: 856 this run, 856 cumulative
 
 Read [FileIo_ReadWrite] (Opcode=67, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 6 this run, 11 cumulative
-    COMBO:ALL_EF_FLAGS: 168 this run, 304 cumulative
-    EF:FILE_IO_INIT: 86 this run, 162 cumulative
-    GM:PERF_FILE_IO_INIT: 94 this run, 640 cumulative
+    COMBO:ALL_EF+ALL_FLT: 5 this run, 5 cumulative
+    COMBO:ALL_EF_FLAGS: 349 this run, 349 cumulative
+    EF:FILE_IO_INIT: 110 this run, 110 cumulative
+    GM:PERF_FILE_IO_INIT: 117 this run, 117 cumulative
 
 Write [FileIo_ReadWrite] (Opcode=68, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 336 this run, 673 cumulative
-    COMBO:ALL_EF_FLAGS: 1183 this run, 1374 cumulative
-    EF:FILE_IO_INIT: 245 this run, 369 cumulative
-    GM:PERF_FILE_IO_INIT: 193 this run, 387 cumulative
+    COMBO:ALL_EF+ALL_FLT: 330 this run, 330 cumulative
+    COMBO:ALL_EF_FLAGS: 333 this run, 333 cumulative
+    EF:FILE_IO_INIT: 272 this run, 272 cumulative
+    GM:PERF_FILE_IO_INIT: 222 this run, 222 cumulative
 
 SetInfo [FileIo_Info] (Opcode=69, Version=3)
-    COMBO:ALL_EF_FLAGS: 81 this run, 139 cumulative
-    EF:FILE_IO_INIT: 87 this run, 106 cumulative
-    GM:PERF_FILE_IO_INIT: 70 this run, 122 cumulative
+    COMBO:ALL_EF_FLAGS: 99 this run, 99 cumulative
+    EF:FILE_IO_INIT: 97 this run, 97 cumulative
+    GM:PERF_FILE_IO_INIT: 123 this run, 123 cumulative
 
 Delete [FileIo_Info] (Opcode=70, Version=3)
-    COMBO:ALL_EF_FLAGS: 30 this run, 52 cumulative
-    EF:FILE_IO_INIT: 26 this run, 48 cumulative
-    GM:PERF_FILE_IO_INIT: 28 this run, 52 cumulative
+    COMBO:ALL_EF_FLAGS: 28 this run, 28 cumulative
+    EF:FILE_IO_INIT: 32 this run, 32 cumulative
+    GM:PERF_FILE_IO_INIT: 32 this run, 32 cumulative
 
 Rename [FileIo_Info] (Opcode=71, Version=3)
-    COMBO:ALL_EF_FLAGS: 16 this run, 22 cumulative
-    EF:FILE_IO_INIT: 6 this run, 12 cumulative
-    GM:PERF_FILE_IO_INIT: 6 this run, 12 cumulative
+    COMBO:ALL_EF_FLAGS: 6 this run, 6 cumulative
+    EF:FILE_IO_INIT: 10 this run, 10 cumulative
+    GM:PERF_FILE_IO_INIT: 6 this run, 6 cumulative
 
 DirEnum [FileIo_DirEnum] (Opcode=72, Version=3)
-    COMBO:ALL_EF_FLAGS: 85 this run, 135 cumulative
-    EF:FILE_IO_INIT: 62 this run, 113 cumulative
-    GM:PERF_FILE_IO_INIT: 69 this run, 125 cumulative
+    COMBO:ALL_EF_FLAGS: 301 this run, 301 cumulative
+    EF:FILE_IO_INIT: 340 this run, 340 cumulative
+    GM:PERF_FILE_IO_INIT: 314 this run, 314 cumulative
 
 Flush [FileIo_SimpleOp] (Opcode=73, Version=3)
-    COMBO:ALL_EF_FLAGS: 19 this run, 38 cumulative
-    EF:FILE_IO_INIT: 22 this run, 41 cumulative
-    GM:PERF_FILE_IO_INIT: 20 this run, 39 cumulative
+    COMBO:ALL_EF_FLAGS: 19 this run, 19 cumulative
+    EF:FILE_IO_INIT: 25 this run, 25 cumulative
+    GM:PERF_FILE_IO_INIT: 19 this run, 19 cumulative
 
 QueryInfo [FileIo_Info] (Opcode=74, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 2 this run, 2 cumulative
-    COMBO:ALL_EF_FLAGS: 291 this run, 497 cumulative
-    EF:FILE_IO_INIT: 220 this run, 427 cumulative
-    GM:PERF_FILE_IO_INIT: 237 this run, 494 cumulative
+    COMBO:ALL_EF_FLAGS: 663 this run, 663 cumulative
+    EF:FILE_IO_INIT: 935 this run, 935 cumulative
+    GM:PERF_FILE_IO_INIT: 680 this run, 680 cumulative
 
 FSControl [FileIo_Info] (Opcode=75, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 6 this run, 12 cumulative
-    COMBO:ALL_EF_FLAGS: 178 this run, 292 cumulative
-    EF:FILE_IO_INIT: 133 this run, 252 cumulative
-    GM:PERF_FILE_IO_INIT: 124 this run, 243 cumulative
+    COMBO:ALL_EF+ALL_FLT: 6 this run, 6 cumulative
+    COMBO:ALL_EF_FLAGS: 168 this run, 168 cumulative
+    EF:FILE_IO_INIT: 315 this run, 315 cumulative
+    GM:PERF_FILE_IO_INIT: 170 this run, 170 cumulative
 
 OperationEnd [FileIo_OpEnd] (Opcode=76, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 350 this run, 698 cumulative
-    COMBO:ALL_EF_FLAGS: 3054 this run, 4532 cumulative
-    EF:FILE_IO: 1495 this run, 2842 cumulative
-    GM:PERF_FILE_IO: 1282 this run, 2685 cumulative
+    COMBO:ALL_EF+ALL_FLT: 341 this run, 341 cumulative
+    COMBO:ALL_EF_FLAGS: 4460 this run, 4460 cumulative
+    EF:FILE_IO: 4903 this run, 4903 cumulative
+    GM:PERF_FILE_IO: 6618 this run, 6618 cumulative
 
 DirNotify [FileIo_DirEnum] (Opcode=77, Version=3)
-    COMBO:ALL_EF_FLAGS: 30 this run, 46 cumulative
-    EF:FILE_IO_INIT: 16 this run, 32 cumulative
-    GM:PERF_FILE_IO_INIT: 16 this run, 32 cumulative
+    COMBO:ALL_EF_FLAGS: 16 this run, 16 cumulative
+    EF:FILE_IO_INIT: 16 this run, 16 cumulative
+    GM:PERF_FILE_IO_INIT: 16 this run, 16 cumulative
 
 DeletePath [FileIo_PathOperation] (Opcode=79, Version=3)
-    COMBO:ALL_EF_FLAGS: 30 this run, 52 cumulative
-    EF:FILE_IO_INIT: 26 this run, 48 cumulative
-    GM:PERF_FILE_IO_INIT: 28 this run, 52 cumulative
+    COMBO:ALL_EF_FLAGS: 28 this run, 28 cumulative
+    EF:FILE_IO_INIT: 32 this run, 32 cumulative
+    GM:PERF_FILE_IO_INIT: 32 this run, 32 cumulative
 
 RenamePath [FileIo_PathOperation] (Opcode=80, Version=3)
-    COMBO:ALL_EF_FLAGS: 16 this run, 22 cumulative
-    EF:FILE_IO_INIT: 6 this run, 12 cumulative
-    GM:PERF_FILE_IO_INIT: 6 this run, 12 cumulative
+    COMBO:ALL_EF_FLAGS: 6 this run, 6 cumulative
+    EF:FILE_IO_INIT: 10 this run, 10 cumulative
+    GM:PERF_FILE_IO_INIT: 6 this run, 6 cumulative
+
+UNKNOWN (Opcode=83, Version=3)
+    EF:FILE_IO_INIT: 2 this run, 2 cumulative
 
 UNKNOWN (Opcode=84, Version=3)
-    COMBO:ALL_EF_FLAGS: 1 this run, 2 cumulative
-    GM:PERF_FILE_IO_INIT: 1 this run, 2 cumulative
+    COMBO:ALL_EF_FLAGS: 1 this run, 1 cumulative
+    EF:FILE_IO_INIT: 21 this run, 21 cumulative
+    GM:PERF_FILE_IO_INIT: 1 this run, 1 cumulative
 
 UNKNOWN (Opcode=86, Version=3)
-    COMBO:ALL_EF_FLAGS: 20 this run, 26 cumulative
-    EF:FILE_IO_INIT: 5 this run, 11 cumulative
-    GM:PERF_FILE_IO_INIT: 4 this run, 8 cumulative
+    COMBO:ALL_EF_FLAGS: 6 this run, 6 cumulative
+    EF:FILE_IO_INIT: 17 this run, 17 cumulative
+    GM:PERF_FILE_IO_INIT: 7 this run, 7 cumulative
 
 PreOpInit [FltIoInit] (Opcode=96, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 4150 this run, 8190 cumulative
-    COMBO:ALL_FLT_MASKS: 3681 this run, 7632 cumulative
-    GM:PERF_FLT_IO_INIT: 4497 this run, 8569 cumulative
+    COMBO:ALL_EF+ALL_FLT: 12262 this run, 12262 cumulative
+    COMBO:ALL_FLT_MASKS: 11689 this run, 11689 cumulative
+    GM:PERF_FLT_IO_INIT: 12388 this run, 12388 cumulative
 
 PostOpInit [FltIoInit] (Opcode=97, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 1539 this run, 2983 cumulative
-    COMBO:ALL_FLT_MASKS: 1322 this run, 2844 cumulative
-    GM:PERF_FLT_IO_INIT: 1647 this run, 3082 cumulative
+    COMBO:ALL_EF+ALL_FLT: 4652 this run, 4652 cumulative
+    COMBO:ALL_FLT_MASKS: 4512 this run, 4512 cumulative
+    GM:PERF_FLT_IO_INIT: 4615 this run, 4615 cumulative
 
 PreOpCompletion [FltIoCompletion] (Opcode=98, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 7783 this run, 15480 cumulative
-    COMBO:ALL_FLT_MASKS: 4664 this run, 9632 cumulative
-    GM:PERF_FLT_FASTIO: 1006 this run, 2076 cumulative
-    GM:PERF_FLT_IO: 4271 this run, 9852 cumulative
+    COMBO:ALL_EF+ALL_FLT: 19125 this run, 19125 cumulative
+    COMBO:ALL_FLT_MASKS: 15928 this run, 15928 cumulative
+    GM:PERF_FLT_FASTIO: 4472 this run, 4472 cumulative
+    GM:PERF_FLT_IO: 12175 this run, 12175 cumulative
 
 PostOpCompletion [FltIoCompletion] (Opcode=99, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 3076 this run, 6022 cumulative
-    COMBO:ALL_FLT_MASKS: 1529 this run, 3312 cumulative
-    GM:PERF_FLT_FASTIO: 275 this run, 496 cumulative
-    GM:PERF_FLT_IO: 1440 this run, 3411 cumulative
+    COMBO:ALL_EF+ALL_FLT: 6595 this run, 6595 cumulative
+    COMBO:ALL_FLT_MASKS: 5197 this run, 5197 cumulative
+    GM:PERF_FLT_FASTIO: 721 this run, 721 cumulative
+    GM:PERF_FLT_IO: 4576 this run, 4576 cumulative
 
 PreOpFailure [FltIoFailure] (Opcode=100, Version=3)
-    COMBO:ALL_EF+ALL_FLT: 8 this run, 15 cumulative
-    COMBO:ALL_FLT_MASKS: 8 this run, 15 cumulative
-    GM:PERF_FLT_IO_FAILURE: 8 this run, 15 cumulative
+    COMBO:ALL_EF+ALL_FLT: 8 this run, 8 cumulative
+    COMBO:ALL_FLT_MASKS: 8 this run, 8 cumulative
+    GM:PERF_FLT_IO_FAILURE: 8 this run, 8 cumulative
 
 Defined events NEVER received across all runs:
 -----------------------------------------------
