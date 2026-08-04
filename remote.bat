@@ -1,1 +1,0 @@
-wt.exe new-tab cmd /k "codenomad --password mmsb --https false --http true --host 0.0.0.0 --workspace-root E:" ; split-pane -H cmd /k "code serve-web --host 0.0.0.0 --without-connection-token --accept-server-license-terms --disable-telemetry"
