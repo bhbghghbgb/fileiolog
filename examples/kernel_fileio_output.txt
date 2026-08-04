@@ -1,0 +1,8 @@
+[FileIO-FileCreate] Name(FileIoName { file_object: 18446631940604731760, file_name: "\\Device\\HarddiskVolume4\\Windows\\System32\\LogFiles\\WMI\\RtBackup\\EtwRTFileIoKernelTrace.etl" })
+[FileIO-FileDelete] Name(FileIoName { file_object: 18446631940030431600, file_name: "\\Device\\HarddiskVolume4\\Users\\ACER\\.cargo\\.global-cache-journal" })
+[FileIO-FileDelete] Name(FileIoName { file_object: 18446631940180168032, file_name: "\\Device\\HarddiskVolume4\\Windows\\System32\\drivers\\en-US\\acpi.sys.mui:WofCompressedData" })
+...
+[FileIO-FileRundown] Name(FileIoName { file_object: 18446631939053044080, file_name: "\\Device\\HarddiskVolume4\\Windows\\System32\\drivers\\afd.sys" })
+[FileIO-FileRundown] Name(FileIoName { file_object: 18446631939053037136, file_name: "\\Device\\HarddiskVolume4\\Windows\\System32\\drivers\\afd.sys:WofCompressedData" })
+[FileIO-FileRundown] Name(FileIoName { file_object: 18446631939053046272, file_name: "\\Device\\HarddiskVolume4\\Windows\\System32\\drivers\\vwififlt.sys" })
+...
