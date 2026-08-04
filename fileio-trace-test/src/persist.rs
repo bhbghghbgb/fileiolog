@@ -151,7 +151,10 @@ pub fn display(persisted: &PersistedData, current: &HashMap<String, HashMap<Stri
         };
 
         let label = if let Some(known) = EVENT_REGISTRY.get(&(opcode, version)) {
-            format!("{} (Opcode={}, Version={})", known.event_name, opcode, version)
+            format!(
+                "{} [{}] (Opcode={}, Version={})",
+                known.event_name, known.class_name, opcode, version
+            )
         } else {
             format!("UNKNOWN (Opcode={}, Version={})", opcode, version)
         };
@@ -175,6 +178,31 @@ pub fn display(persisted: &PersistedData, current: &HashMap<String, HashMap<Stri
                     cumulative_count
                 );
             }
+        }
+    }
+
+    // Warn about defined events that were never received in any run
+    let received_keys: std::collections::HashSet<String> =
+        persisted.config_events.values().flat_map(|m| m.keys().cloned()).collect();
+
+    let mut unreceived: Vec<_> = EVENT_REGISTRY
+        .iter()
+        .filter(|((op, ver), _)| !received_keys.contains(&format!("{}:{}", op, ver)))
+        .collect();
+    unreceived.sort_by_key(|((op, ver), _)| (*op, *ver));
+
+    if !unreceived.is_empty() {
+        log::warn!("");
+        log::warn!("Defined events NEVER received across all runs:");
+        log::warn!("-----------------------------------------------");
+        for ((opcode, version), def) in &unreceived {
+            log::warn!(
+                "  {} [{}] (Opcode={}, Version={})",
+                def.event_name,
+                def.class_name,
+                opcode,
+                version
+            );
         }
     }
 }
