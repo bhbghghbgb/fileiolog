@@ -9,6 +9,7 @@ env_logger = "0.11.11"
 log = "0.4.33"
 widestring = "1.0"
 once_cell = "1.14"
+memmap2 = "0.9"
 
 # Must match ferrisetw's internal windows crate version exactly (0.61.3).
 windows = { version = "0.61", features = [
