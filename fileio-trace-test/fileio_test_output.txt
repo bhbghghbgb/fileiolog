@@ -1,0 +1,187 @@
+FileCreate [FileIo_V2_Name] (Opcode=32, Version=2)
+    COMBO:ALL_EF+ALL_FLT: 1 this run, 2 cumulative
+    COMBO:ALL_EF_FLAGS: 62 this run, 101 cumulative
+    EF:DISK_FILE_IO: 59 this run, 98 cumulative
+    GM:PERF_FILENAME: 45 this run, 87 cumulative
+
+FileDelete [FileIo_V2_Name] (Opcode=35, Version=2)
+    COMBO:ALL_EF_FLAGS: 43 this run, 70 cumulative
+    EF:DISK_FILE_IO: 49 this run, 64 cumulative
+    GM:PERF_FILENAME: 25 this run, 55 cumulative
+
+FileRundown [FileIo_V2_Name] (Opcode=36, Version=2)
+    COMBO:ALL_EF+ALL_FLT: 27852 this run, 56555 cumulative
+
+UNKNOWN (Opcode=37, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 2 this run, 4 cumulative
+    COMBO:ALL_EF_FLAGS: 1255 this run, 1976 cumulative
+    EF:VAMAP: 717 this run, 1399 cumulative
+    GM:PERF_VAMAP: 495 this run, 1029 cumulative
+
+UNKNOWN (Opcode=38, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 2 this run, 4 cumulative
+    COMBO:ALL_EF_FLAGS: 1283 this run, 1997 cumulative
+    EF:VAMAP: 713 this run, 1401 cumulative
+    GM:PERF_VAMAP: 497 this run, 1025 cumulative
+
+UNKNOWN (Opcode=39, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 16573 this run, 33274 cumulative
+    COMBO:ALL_EF_FLAGS: 16704 this run, 33398 cumulative
+    EF:VAMAP: 16700 this run, 33384 cumulative
+    GM:PERF_VAMAP: 16705 this run, 33400 cumulative
+
+UNKNOWN (Opcode=40, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 16573 this run, 33274 cumulative
+
+Create [FileIo_Create] (Opcode=64, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 1 this run, 2 cumulative
+    COMBO:ALL_EF_FLAGS: 348 this run, 595 cumulative
+    EF:FILE_IO_INIT: 272 this run, 516 cumulative
+    GM:PERF_FILE_IO_INIT: 296 this run, 596 cumulative
+
+Cleanup [FileIo_SimpleOp] (Opcode=65, Version=3)
+    COMBO:ALL_EF_FLAGS: 289 this run, 483 cumulative
+    EF:FILE_IO_INIT: 218 this run, 409 cumulative
+    GM:PERF_FILE_IO_INIT: 237 this run, 463 cumulative
+
+Close [FileIo_SimpleOp] (Opcode=66, Version=3)
+    COMBO:ALL_EF_FLAGS: 320 this run, 536 cumulative
+    EF:FILE_IO_INIT: 269 this run, 468 cumulative
+    GM:PERF_FILE_IO_INIT: 281 this run, 539 cumulative
+
+Read [FileIo_ReadWrite] (Opcode=67, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 6 this run, 11 cumulative
+    COMBO:ALL_EF_FLAGS: 168 this run, 304 cumulative
+    EF:FILE_IO_INIT: 86 this run, 162 cumulative
+    GM:PERF_FILE_IO_INIT: 94 this run, 640 cumulative
+
+Write [FileIo_ReadWrite] (Opcode=68, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 336 this run, 673 cumulative
+    COMBO:ALL_EF_FLAGS: 1183 this run, 1374 cumulative
+    EF:FILE_IO_INIT: 245 this run, 369 cumulative
+    GM:PERF_FILE_IO_INIT: 193 this run, 387 cumulative
+
+SetInfo [FileIo_Info] (Opcode=69, Version=3)
+    COMBO:ALL_EF_FLAGS: 81 this run, 139 cumulative
+    EF:FILE_IO_INIT: 87 this run, 106 cumulative
+    GM:PERF_FILE_IO_INIT: 70 this run, 122 cumulative
+
+Delete [FileIo_Info] (Opcode=70, Version=3)
+    COMBO:ALL_EF_FLAGS: 30 this run, 52 cumulative
+    EF:FILE_IO_INIT: 26 this run, 48 cumulative
+    GM:PERF_FILE_IO_INIT: 28 this run, 52 cumulative
+
+Rename [FileIo_Info] (Opcode=71, Version=3)
+    COMBO:ALL_EF_FLAGS: 16 this run, 22 cumulative
+    EF:FILE_IO_INIT: 6 this run, 12 cumulative
+    GM:PERF_FILE_IO_INIT: 6 this run, 12 cumulative
+
+DirEnum [FileIo_DirEnum] (Opcode=72, Version=3)
+    COMBO:ALL_EF_FLAGS: 85 this run, 135 cumulative
+    EF:FILE_IO_INIT: 62 this run, 113 cumulative
+    GM:PERF_FILE_IO_INIT: 69 this run, 125 cumulative
+
+Flush [FileIo_SimpleOp] (Opcode=73, Version=3)
+    COMBO:ALL_EF_FLAGS: 19 this run, 38 cumulative
+    EF:FILE_IO_INIT: 22 this run, 41 cumulative
+    GM:PERF_FILE_IO_INIT: 20 this run, 39 cumulative
+
+QueryInfo [FileIo_Info] (Opcode=74, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 2 this run, 2 cumulative
+    COMBO:ALL_EF_FLAGS: 291 this run, 497 cumulative
+    EF:FILE_IO_INIT: 220 this run, 427 cumulative
+    GM:PERF_FILE_IO_INIT: 237 this run, 494 cumulative
+
+FSControl [FileIo_Info] (Opcode=75, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 6 this run, 12 cumulative
+    COMBO:ALL_EF_FLAGS: 178 this run, 292 cumulative
+    EF:FILE_IO_INIT: 133 this run, 252 cumulative
+    GM:PERF_FILE_IO_INIT: 124 this run, 243 cumulative
+
+OperationEnd [FileIo_OpEnd] (Opcode=76, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 350 this run, 698 cumulative
+    COMBO:ALL_EF_FLAGS: 3054 this run, 4532 cumulative
+    EF:FILE_IO: 1495 this run, 2842 cumulative
+    GM:PERF_FILE_IO: 1282 this run, 2685 cumulative
+
+DirNotify [FileIo_DirEnum] (Opcode=77, Version=3)
+    COMBO:ALL_EF_FLAGS: 30 this run, 46 cumulative
+    EF:FILE_IO_INIT: 16 this run, 32 cumulative
+    GM:PERF_FILE_IO_INIT: 16 this run, 32 cumulative
+
+DeletePath [FileIo_PathOperation] (Opcode=79, Version=3)
+    COMBO:ALL_EF_FLAGS: 30 this run, 52 cumulative
+    EF:FILE_IO_INIT: 26 this run, 48 cumulative
+    GM:PERF_FILE_IO_INIT: 28 this run, 52 cumulative
+
+RenamePath [FileIo_PathOperation] (Opcode=80, Version=3)
+    COMBO:ALL_EF_FLAGS: 16 this run, 22 cumulative
+    EF:FILE_IO_INIT: 6 this run, 12 cumulative
+    GM:PERF_FILE_IO_INIT: 6 this run, 12 cumulative
+
+UNKNOWN (Opcode=84, Version=3)
+    COMBO:ALL_EF_FLAGS: 1 this run, 2 cumulative
+    GM:PERF_FILE_IO_INIT: 1 this run, 2 cumulative
+
+UNKNOWN (Opcode=86, Version=3)
+    COMBO:ALL_EF_FLAGS: 20 this run, 26 cumulative
+    EF:FILE_IO_INIT: 5 this run, 11 cumulative
+    GM:PERF_FILE_IO_INIT: 4 this run, 8 cumulative
+
+PreOpInit [FltIoInit] (Opcode=96, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 4150 this run, 8190 cumulative
+    COMBO:ALL_FLT_MASKS: 3681 this run, 7632 cumulative
+    GM:PERF_FLT_IO_INIT: 4497 this run, 8569 cumulative
+
+PostOpInit [FltIoInit] (Opcode=97, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 1539 this run, 2983 cumulative
+    COMBO:ALL_FLT_MASKS: 1322 this run, 2844 cumulative
+    GM:PERF_FLT_IO_INIT: 1647 this run, 3082 cumulative
+
+PreOpCompletion [FltIoCompletion] (Opcode=98, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 7783 this run, 15480 cumulative
+    COMBO:ALL_FLT_MASKS: 4664 this run, 9632 cumulative
+    GM:PERF_FLT_FASTIO: 1006 this run, 2076 cumulative
+    GM:PERF_FLT_IO: 4271 this run, 9852 cumulative
+
+PostOpCompletion [FltIoCompletion] (Opcode=99, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 3076 this run, 6022 cumulative
+    COMBO:ALL_FLT_MASKS: 1529 this run, 3312 cumulative
+    GM:PERF_FLT_FASTIO: 275 this run, 496 cumulative
+    GM:PERF_FLT_IO: 1440 this run, 3411 cumulative
+
+PreOpFailure [FltIoFailure] (Opcode=100, Version=3)
+    COMBO:ALL_EF+ALL_FLT: 8 this run, 15 cumulative
+    COMBO:ALL_FLT_MASKS: 8 this run, 15 cumulative
+    GM:PERF_FLT_IO_FAILURE: 8 this run, 15 cumulative
+
+Defined events NEVER received across all runs:
+-----------------------------------------------
+  Name [FileIo_V0_Name] (Opcode=0, Version=0)
+  Name [FileIo_V1_Name] (Opcode=0, Version=1)
+  Name [FileIo_V2_Name] (Opcode=0, Version=2)
+  Name [FileIo_Name] (Opcode=0, Version=3)
+  FileCreate [FileIo_V1_Name] (Opcode=32, Version=1)
+  FileCreate [FileIo_Name] (Opcode=32, Version=3)
+  FileDelete [FileIo_Name] (Opcode=35, Version=3)
+  FileRundown [FileIo_Name] (Opcode=36, Version=3)
+  MapFile [FileIo_V2_MapFile] (Opcode=37, Version=2)
+  UnmapFile [FileIo_V2_MapFile] (Opcode=38, Version=2)
+  MapFileDCStart [FileIo_V2_MapFile] (Opcode=39, Version=2)
+  MapFileDCEnd [FileIo_V2_MapFile] (Opcode=40, Version=2)
+  Create [FileIo_V2_Create] (Opcode=64, Version=2)
+  Cleanup [FileIo_V2_SimpleOp] (Opcode=65, Version=2)
+  Close [FileIo_V2_SimpleOp] (Opcode=66, Version=2)
+  Read [FileIo_V2_ReadWrite] (Opcode=67, Version=2)
+  Write [FileIo_V2_ReadWrite] (Opcode=68, Version=2)
+  SetInfo [FileIo_V2_Info] (Opcode=69, Version=2)
+  Delete [FileIo_V2_Info] (Opcode=70, Version=2)
+  Rename [FileIo_V2_Info] (Opcode=71, Version=2)
+  DirEnum [FileIo_V2_DirEnum] (Opcode=72, Version=2)
+  Flush [FileIo_V2_SimpleOp] (Opcode=73, Version=2)
+  QueryInfo [FileIo_V2_Info] (Opcode=74, Version=2)
+  FSControl [FileIo_V2_Info] (Opcode=75, Version=2)
+  OperationEnd [FileIo_V2_OpEnd] (Opcode=76, Version=2)
+  DirNotify [FileIo_V2_DirEnum] (Opcode=77, Version=2)
+  SetLinkPath [FileIo_PathOperation] (Opcode=81, Version=3)
+  PostOpFailure [FltIoFailure] (Opcode=101, Version=3)
