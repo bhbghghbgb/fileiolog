@@ -1,13 +1,17 @@
 mod events;
 mod file_ops;
+mod persist;
 mod trace_session;
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use events::{EVENT_REGISTRY, FileIoEvent};
 use trace_session::{KernelTraceSession, TraceConfig};
+
+const PERSIST_FILE: &str = "fileio_test_results.json";
 
 /// Test configuration for a single flag/mask combination
 struct TestConfig {
@@ -26,15 +30,22 @@ fn main() {
     log::info!("configurations to discover which FileIo event types are enabled by each.");
     log::info!("");
 
+    // Load previous persisted results
+    let persist_path = Path::new(PERSIST_FILE);
+    let mut persisted = persist::load(persist_path);
+
     // Define all test configurations
     let test_configs = build_test_configs();
 
     log::info!("Total configurations to test: {}", test_configs.len());
     log::info!("");
 
-    // Shared storage for results
+    // Shared storage for raw events (needed for the original per-config display)
     let results: Arc<Mutex<HashMap<String, Vec<FileIoEvent>>>> =
         Arc::new(Mutex::new(HashMap::new()));
+
+    // Per-config event counts for this run (for merging)
+    let mut current_counts: HashMap<String, HashMap<String, usize>> = HashMap::new();
 
     // Print all known events at startup
     log::trace!("Known FileIo events:");
@@ -67,11 +78,15 @@ fn main() {
 
         let collected_events = run_single_test(config);
 
-        // Store results
+        // Store raw results
         {
             let mut results = results.lock().unwrap();
             results.insert(config.name.clone(), collected_events.clone());
         }
+
+        // Compute and store this config's event counts for merging
+        let counts = persist::compute_counts(&collected_events);
+        current_counts.insert(config.name.clone(), counts.clone());
 
         // Print discovered events
         log::info!("  Discovered {} events:", collected_events.len());
@@ -81,7 +96,9 @@ fn main() {
                 .entry((event.opcode, event.version))
                 .or_insert(0) += 1;
         }
-        for ((opcode, version), count) in &event_counts {
+        let mut sorted_counts: Vec<_> = event_counts.into_iter().collect();
+        sorted_counts.sort_by_key(|((op, ver), _)| (*op, *ver));
+        for ((opcode, version), count) in &sorted_counts {
             if let Some(known) = EVENT_REGISTRY.get(&(*opcode, *version)) {
                 log::info!(
                     "    Opcode={}, Version={}, Class={}, Name={}, Count={}",
@@ -108,10 +125,12 @@ fn main() {
         }
     }
 
-    // Print summary
-    log::info!("");
-    log::info!("=== SUMMARY ===");
-    print_summary(&results.lock().unwrap());
+    // Merge current run with persisted data and save
+    persist::merge(&mut persisted, &current_counts);
+    persist::save(persist_path, &persisted);
+
+    // Display cumulative results
+    persist::display(&persisted, &current_counts);
 }
 
 /// Build all test configurations (EnableFlags and PERFINFO_GROUPMASK)
@@ -337,81 +356,4 @@ fn run_single_test(config: &TestConfig) -> Vec<FileIoEvent> {
     // Return collected events
     let events = collected_events.lock().unwrap().clone();
     events
-}
-
-/// Print summary of all test results
-fn print_summary(results: &HashMap<String, Vec<FileIoEvent>>) {
-    // Collect all unique event types and which configs produced them
-    let mut all_events: HashMap<(u8, u8), HashMap<String, usize>> = HashMap::new();
-
-    for (config_name, events) in results {
-        for event in events {
-            let key = (event.opcode, event.version);
-            *all_events
-                .entry(key)
-                .or_default()
-                .entry(config_name.clone())
-                .or_insert(0) += 1;
-        }
-    }
-
-    // Collect received keys before consuming all_events
-    let received_keys: std::collections::HashSet<(u8, u8)> =
-        all_events.keys().copied().collect();
-
-    log::info!("");
-    log::info!("Event-to-Flag/Mask Mapping:");
-    log::info!("==========================");
-
-    // Sort by opcode and version
-    let mut sorted_events: Vec<_> = all_events.into_iter().collect();
-    sorted_events.sort_by_key(|((opcode, ver), _)| (*opcode, *ver));
-
-    for ((opcode, version), config_counts) in &sorted_events {
-        if let Some(known) = EVENT_REGISTRY.get(&(*opcode, *version)) {
-            log::info!(
-                "Event: {} (Opcode={}, Version={})",
-                known.event_name,
-                opcode,
-                version
-            );
-            log::info!("  Class: {}", known.class_name);
-            log::info!("  Enabled by:");
-            let mut sorted_configs: Vec<_> = config_counts.iter().collect();
-            sorted_configs.sort_by_key(|(name, _)| name.as_str());
-            for (name, count) in sorted_configs {
-                log::info!("    - {} (count={})", name, count);
-            }
-        } else {
-            log::warn!("Unknown Event: Opcode={}, Version={}", opcode, version);
-            log::warn!("  Enabled by:");
-            let mut sorted_configs: Vec<_> = config_counts.iter().collect();
-            sorted_configs.sort_by_key(|(name, _)| name.as_str());
-            for (name, count) in sorted_configs {
-                log::warn!("    - {} (count={})", name, count);
-            }
-        }
-    }
-
-    // Warn about defined events that were never received
-    let mut unreceived: Vec<_> = EVENT_REGISTRY
-        .iter()
-        .filter(|((op, ver), _)| !received_keys.contains(&(*op, *ver)))
-        .collect();
-    unreceived.sort_by_key(|((op, ver), _)| (*op, *ver));
-
-    if !unreceived.is_empty() {
-        log::warn!("");
-        log::warn!("Defined events NOT received by any test configuration:");
-        log::warn!("-------------------------------------------------------");
-        for ((opcode, version), def) in &unreceived {
-            log::warn!(
-                "  {} (Opcode={}, Version={}, Class={})",
-                def.event_name,
-                opcode,
-                version,
-                def.class_name
-            );
-        }
-    }
 }
