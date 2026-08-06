@@ -1,8 +1,6 @@
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
-use syn::{
-    braced, parse::Parse, parse::ParseStream, Attribute, Error, Ident, Token, Visibility,
-};
+use quote::{ToTokens, quote};
+use syn::{Attribute, Error, Ident, Token, Visibility, braced, parse::Parse, parse::ParseStream};
 
 /// Input: the entire `fileio_events! { ... }` invocation
 struct FileIoEventsInput {
@@ -88,7 +86,7 @@ impl Parse for FileIoEvent {
                             "unknown field type `{}`; expected one of: pointer, string, u32, u64, i32, i64, filetime",
                             type_ident
                         ),
-                    ))
+                    ));
                 }
             };
 
@@ -225,7 +223,7 @@ impl FileIoEventsInput {
                 ) -> Option<Self> {
                     let schema = schema_locator.event_schema(record).ok()?;
                     let parser = ::ferrisetw::parser::Parser::create(record, &schema);
-                    match (record.event_id(), record.version()) {
+                    match (record.opcode() as u16, record.version()) {
                         #(#exact_match_arms)*
                         _ => {
                             #[cfg(debug_assertions)]

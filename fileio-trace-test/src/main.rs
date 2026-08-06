@@ -53,10 +53,6 @@ fn main() {
     let results: Arc<Mutex<HashMap<String, Vec<events::FileIoRawEvent>>>> =
         Arc::new(Mutex::new(HashMap::new()));
 
-    // Shared storage for parsed events (for file output)
-    let parsed_results: Arc<Mutex<HashMap<String, Vec<ParsedFileIoEvent>>>> =
-        Arc::new(Mutex::new(HashMap::new()));
-
     // Per-config event counts for this run (for merging)
     let mut current_counts: HashMap<String, HashMap<String, usize>> = HashMap::new();
 
@@ -97,11 +93,9 @@ fn main() {
             results.insert(config.name.clone(), collected_events.clone());
         }
 
-        // Store parsed results
-        {
-            let mut parsed = parsed_results.lock().unwrap();
-            parsed.insert(config.name.clone(), parsed_events.clone());
-        }
+        // Write parsed events to file immediately after session ends
+        // (flush to disk before next session to avoid contributing to events)
+        write_events_to_file(events_dir, &config.name, &parsed_events);
 
         // Compute and store this config's event counts for merging
         let counts = persist::compute_counts(&collected_events);
@@ -143,11 +137,6 @@ fn main() {
             std::thread::sleep(Duration::from_secs(2));
         }
     }
-
-    // Write parsed events to files (after all tests complete, to avoid disk I/O during tracing)
-    log::info!("");
-    log::info!("=== Writing parsed events to files ===");
-    write_events_to_files(events_dir, &parsed_results.lock().unwrap());
 
     // Merge current run with persisted data and save
     persist::merge(&mut persisted, &current_counts);
@@ -385,35 +374,34 @@ fn run_single_test(config: &TestConfig) -> (Vec<events::FileIoRawEvent>, Vec<Par
     (raw_events, parsed)
 }
 
-/// Write parsed events to files, one file per configuration
-fn write_events_to_files(
+/// Write parsed events for a single configuration to a file
+fn write_events_to_file(
     events_dir: &Path,
-    parsed_results: &HashMap<String, Vec<ParsedFileIoEvent>>,
+    config_name: &str,
+    events: &[ParsedFileIoEvent],
 ) {
-    for (config_name, events) in parsed_results {
-        // Sanitize config name for filename
-        let safe_name = config_name
-            .replace(":", "_")
-            .replace("+", "_")
-            .replace(" ", "_");
-        let file_path = events_dir.join(format!("{}.json", safe_name));
+    // Sanitize config name for filename
+    let safe_name = config_name
+        .replace(":", "_")
+        .replace("+", "_")
+        .replace(" ", "_");
+    let file_path = events_dir.join(format!("{}.json", safe_name));
 
-        log::info!(
-            "  Writing {} events for '{}' to {}",
-            events.len(),
-            config_name,
-            file_path.display()
-        );
+    log::info!(
+        "  Writing {} events for '{}' to {}",
+        events.len(),
+        config_name,
+        file_path.display()
+    );
 
-        match serde_json::to_string_pretty(events) {
-            Ok(json) => {
-                if let Err(e) = fs::write(&file_path, json) {
-                    log::error!("Failed to write {}: {}", file_path.display(), e);
-                }
+    match serde_json::to_string_pretty(events) {
+        Ok(json) => {
+            if let Err(e) = fs::write(&file_path, json) {
+                log::error!("Failed to write {}: {}", file_path.display(), e);
             }
-            Err(e) => {
-                log::error!("Failed to serialize events for '{}': {}", config_name, e);
-            }
+        }
+        Err(e) => {
+            log::error!("Failed to serialize events for '{}': {}", config_name, e);
         }
     }
 }
