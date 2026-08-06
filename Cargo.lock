@@ -277,6 +277,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "flt-io-fastio-compare"
+version = "0.1.0"
+dependencies = [
+ "etw-macros",
+ "ferrisetw",
+ "fileio-events-macro",
+ "fileiolog",
+ "log",
+ "memmap2",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "windows",
+ "winres",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
