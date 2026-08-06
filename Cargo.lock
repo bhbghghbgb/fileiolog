@@ -490,6 +490,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
+name = "perf-flt-compare"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "etw-macros",
+ "ferrisetw",
+ "fileiolog",
+ "log",
+ "serde",
+ "serde_json",
+ "windows",
+ "winres",
+]
+
+[[package]]
 name = "phf"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

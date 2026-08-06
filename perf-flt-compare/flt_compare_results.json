@@ -1,0 +1,82 @@
+{
+  "heuristic_scores": {
+    "Exclusive (no overlap)": 98.77637636745762,
+    "FASTIO ⊂ IO": 0.8023846709430589,
+    "Partial overlap": 51.22362363254237,
+    "Same events": 31.297730847503168
+  },
+  "passes": [
+    {
+      "count_fastio": 26716,
+      "count_io": 17845,
+      "distribution_match": false,
+      "match_ratio_a": 0.037881759596525635,
+      "match_ratio_b": 0.025303189100164696,
+      "matched_pairs": 676,
+      "pass": 1,
+      "ratio": 1.497114037545531,
+      "unique_to_fastio": 26040,
+      "unique_to_io": 17169
+    },
+    {
+      "count_fastio": 11329,
+      "count_io": 7385,
+      "distribution_match": false,
+      "match_ratio_a": 0.03033175355450237,
+      "match_ratio_b": 0.019772265866360668,
+      "matched_pairs": 224,
+      "pass": 2,
+      "ratio": 1.5340555179417739,
+      "unique_to_fastio": 11105,
+      "unique_to_io": 7161
+    },
+    {
+      "count_fastio": 11774,
+      "count_io": 9831,
+      "distribution_match": false,
+      "match_ratio_a": 0.024616010578781405,
+      "match_ratio_b": 0.020553762527603193,
+      "matched_pairs": 242,
+      "pass": 3,
+      "ratio": 1.1976401179941003,
+      "unique_to_fastio": 11532,
+      "unique_to_io": 9589
+    },
+    {
+      "count_fastio": 11784,
+      "count_io": 7885,
+      "distribution_match": false,
+      "match_ratio_a": 0.026886493341788206,
+      "match_ratio_b": 0.01799049558723693,
+      "matched_pairs": 212,
+      "pass": 4,
+      "ratio": 1.4944831959416613,
+      "unique_to_fastio": 11572,
+      "unique_to_io": 7673
+    },
+    {
+      "count_fastio": 11392,
+      "count_io": 7689,
+      "distribution_match": false,
+      "match_ratio_a": 0.024710625568994667,
+      "match_ratio_b": 0.016678370786516853,
+      "matched_pairs": 190,
+      "pass": 5,
+      "ratio": 1.4815970867473014,
+      "unique_to_fastio": 11202,
+      "unique_to_io": 7499
+    }
+  ],
+  "summary": {
+    "best_hypothesis": "Exclusive (no overlap)",
+    "confidence": 98.77637636745762,
+    "distribution_match_rate": 0.0,
+    "mean_match_ratio_a": 0.028885328528118454,
+    "mean_match_ratio_b": 0.02005961677357647,
+    "mean_ratio": 1.4409779912340734,
+    "num_passes": 5,
+    "ratio_consistency": 0.8294003224414791,
+    "total_unique_to_fastio": 71451,
+    "total_unique_to_io": 49091
+  }
+}
