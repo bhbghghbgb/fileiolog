@@ -30,8 +30,7 @@ pub struct FileIoRawEvent {
 }
 
 /// Represents a parsed FileIo event with data
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ParsedFileIoEvent {
     pub opcode: u8,
     pub event_id: u16,
@@ -426,7 +425,7 @@ pub static EVENT_REGISTRY: Lazy<HashMap<(u8, u8), FileIoEventDef>> = Lazy::new(|
 static WARNED_UNKNOWN: once_cell::sync::Lazy<Mutex<Vec<(u8, u8)>>> =
     once_cell::sync::Lazy::new(|| Mutex::new(Vec::new()));
 
-/// Log a raw event, handling unknown events with warn-once semantics
+/// Log a raw event, handling unknown events with warn-on-ce semantics
 pub fn log_event(opcode: u8, event_id: u16, version: u8, _timestamp: u64, process_id: u32, thread_id: u32) {
     let key = (opcode, version);
 

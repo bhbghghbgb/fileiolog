@@ -5,6 +5,7 @@ mod persist;
 mod trace_session;
 
 use std::collections::HashMap;
+use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -13,6 +14,7 @@ use events::{EVENT_REGISTRY, ParsedFileIoEvent};
 use trace_session::{KernelTraceSession, TraceConfig};
 
 const PERSIST_FILE: &str = "fileio_test_results.json";
+const EVENTS_DIR: &str = "fileio_events";
 
 /// Test configuration for a single flag/mask combination
 struct TestConfig {
@@ -35,6 +37,12 @@ fn main() {
     let persist_path = Path::new(PERSIST_FILE);
     let mut persisted = persist::load(persist_path);
 
+    // Create events output directory
+    let events_dir = Path::new(EVENTS_DIR);
+    if let Err(e) = fs::create_dir_all(events_dir) {
+        log::warn!("Failed to create events directory {}: {}", events_dir.display(), e);
+    }
+
     // Define all test configurations
     let test_configs = build_test_configs();
 
@@ -45,7 +53,7 @@ fn main() {
     let results: Arc<Mutex<HashMap<String, Vec<events::FileIoRawEvent>>>> =
         Arc::new(Mutex::new(HashMap::new()));
 
-    // Shared storage for parsed events (for comparison)
+    // Shared storage for parsed events (for file output)
     let parsed_results: Arc<Mutex<HashMap<String, Vec<ParsedFileIoEvent>>>> =
         Arc::new(Mutex::new(HashMap::new()));
 
@@ -129,23 +137,6 @@ fn main() {
             }
         }
 
-        // Print parsed events for this config
-        if !parsed_events.is_empty() {
-            log::info!("  Parsed events:");
-            for event in &parsed_events {
-                if let Some(known) = EVENT_REGISTRY.get(&(event.opcode, event.version)) {
-                    log::info!(
-                        "    {} [{}] PID={} TID={} data={:?}",
-                        known.event_name,
-                        known.class_name,
-                        event.process_id,
-                        event.thread_id,
-                        event.event
-                    );
-                }
-            }
-        }
-
         // Brief pause between tests
         if i < test_configs.len() - 1 {
             log::info!("  Pausing 2 seconds before next test...");
@@ -153,15 +144,17 @@ fn main() {
         }
     }
 
+    // Write parsed events to files (after all tests complete, to avoid disk I/O during tracing)
+    log::info!("");
+    log::info!("=== Writing parsed events to files ===");
+    write_events_to_files(events_dir, &parsed_results.lock().unwrap());
+
     // Merge current run with persisted data and save
     persist::merge(&mut persisted, &current_counts);
     persist::save(persist_path, &persisted);
 
     // Display cumulative results
     persist::display(&persisted, &current_counts);
-
-    // Display parsed event comparison
-    display_parsed_comparison(&parsed_results);
 }
 
 /// Build all test configurations (EnableFlags and PERFINFO_GROUPMASK)
@@ -392,141 +385,34 @@ fn run_single_test(config: &TestConfig) -> (Vec<events::FileIoRawEvent>, Vec<Par
     (raw_events, parsed)
 }
 
-/// Display a comparison of parsed events across configurations
-/// This helps identify differences between flag combinations (e.g., PERF_FLT_FASTIO vs PERF_FLT_IO)
-fn display_parsed_comparison(
-    parsed_results: &Arc<Mutex<HashMap<String, Vec<ParsedFileIoEvent>>>>,
+/// Write parsed events to files, one file per configuration
+fn write_events_to_files(
+    events_dir: &Path,
+    parsed_results: &HashMap<String, Vec<ParsedFileIoEvent>>,
 ) {
-    let results = parsed_results.lock().unwrap();
+    for (config_name, events) in parsed_results {
+        // Sanitize config name for filename
+        let safe_name = config_name
+            .replace(":", "_")
+            .replace("+", "_")
+            .replace(" ", "_");
+        let file_path = events_dir.join(format!("{}.json", safe_name));
 
-    log::info!("");
-    log::info!("=== PARSED EVENT COMPARISON ===");
-    log::info!("Comparing parsed event data across flag combinations to identify differences.");
-    log::info!("");
+        log::info!(
+            "  Writing {} events for '{}' to {}",
+            events.len(),
+            config_name,
+            file_path.display()
+        );
 
-    // Group events by (opcode, version) across all configs
-    let mut events_by_type: HashMap<(u8, u8), HashMap<String, Vec<&ParsedFileIoEvent>>> =
-        HashMap::new();
-
-    for (config_name, events) in results.iter() {
-        for event in events {
-            events_by_type
-                .entry((event.opcode, event.version))
-                .or_default()
-                .entry(config_name.clone())
-                .or_default()
-                .push(event);
-        }
-    }
-
-    // Sort by opcode and version
-    let mut sorted_types: Vec<_> = events_by_type.into_iter().collect();
-    sorted_types.sort_by_key(|((op, ver), _)| (*op, *ver));
-
-    for ((opcode, version), config_events) in sorted_types {
-        let label = if let Some(known) = EVENT_REGISTRY.get(&(opcode, version)) {
-            format!(
-                "{} [{}] (Opcode={}, Version={})",
-                known.event_name, known.class_name, opcode, version
-            )
-        } else {
-            format!("UNKNOWN (Opcode={}, Version={})", opcode, version)
-        };
-
-        log::info!("{}", label);
-
-        // Collect all unique configs that produced this event type
-        let mut configs: Vec<_> = config_events.keys().cloned().collect();
-        configs.sort();
-
-        for config_name in &configs {
-            let events = config_events.get(config_name).unwrap();
-            log::info!("  {}: {} events", config_name, events.len());
-
-            // Show a sample of the parsed data (first 3 events)
-            for (i, event) in events.iter().take(3).enumerate() {
-                log::info!(
-                    "    [{}] PID={} TID={} data={:?}",
-                    i + 1,
-                    event.process_id,
-                    event.thread_id,
-                    event.event
-                );
-            }
-            if events.len() > 3 {
-                log::info!("    ... and {} more", events.len() - 3);
-            }
-        }
-
-        // Highlight if this event type appears in some configs but not others
-        if configs.len() < results.len() {
-            let missing: Vec<_> = results
-                .keys()
-                .filter(|k| !configs.contains(k))
-                .cloned()
-                .collect();
-            if !missing.is_empty() {
-                log::info!("  NOT present in: {}", missing.join(", "));
-            }
-        }
-    }
-
-    // Special comparison for FltIoCompletion events (the main interest)
-    log::info!("");
-    log::info!("=== FLT IO COMPLETION COMPARISON ===");
-    log::info!("Comparing FltIoCompletion events between PERF_FLT_FASTIO and PERF_FLT_IO");
-    log::info!("");
-
-    let flt_configs = ["GM:PERF_FLT_FASTIO", "GM:PERF_FLT_IO"];
-    let flt_opcodes = [98u8, 99u8]; // PreOpCompletion, PostOpCompletion
-
-    for &opcode in &flt_opcodes {
-        let label = if let Some(known) = EVENT_REGISTRY.get(&(opcode, 3)) {
-            known.event_name
-        } else {
-            "UNKNOWN"
-        };
-
-        log::info!("{} (Opcode={}):", label, opcode);
-
-        let mut all_data: HashMap<String, Vec<String>> = HashMap::new();
-
-        for &config_name in &flt_configs {
-            if let Some(events) = results.get(config_name) {
-                let flt_events: Vec<_> = events
-                    .iter()
-                    .filter(|e| e.opcode == opcode)
-                    .collect();
-
-                log::info!("  {}: {} events", config_name, flt_events.len());
-
-                for event in &flt_events {
-                    let data_str = format!("{:?}", event.event);
-                    all_data
-                        .entry(config_name.to_string())
-                        .or_default()
-                        .push(data_str);
+        match serde_json::to_string_pretty(events) {
+            Ok(json) => {
+                if let Err(e) = fs::write(&file_path, json) {
+                    log::error!("Failed to write {}: {}", file_path.display(), e);
                 }
-            } else {
-                log::info!("  {}: no data", config_name);
             }
-        }
-
-        // Show unique data values for each config
-        for &config_name in &flt_configs {
-            if let Some(data) = all_data.get(config_name) {
-                let unique: std::collections::HashSet<_> = data.iter().collect();
-                log::info!(
-                    "  {} unique data values: {}",
-                    config_name,
-                    unique.len()
-                );
-                for (i, d) in unique.iter().take(5).enumerate() {
-                    log::info!("    [{}] {}", i + 1, d);
-                }
-                if unique.len() > 5 {
-                    log::info!("    ... and {} more unique values", unique.len() - 5);
-                }
+            Err(e) => {
+                log::error!("Failed to serialize events for '{}': {}", config_name, e);
             }
         }
     }

@@ -158,7 +158,7 @@ impl FileIoEventsInput {
                     .collect();
 
                 quote! {
-                    #[derive(Clone, ::fileiolog::etw::EtwEvent)]
+                    #[derive(Clone, ::fileiolog::etw::EtwEvent, ::serde::Serialize, ::serde::Deserialize)]
                     #[allow(non_snake_case)]
                     pub struct #name {
                         #(#fields)*
@@ -211,7 +211,7 @@ impl FileIoEventsInput {
         let expanded = quote! {
             #(#struct_defs)*
 
-            #[derive(Debug, Clone)]
+            #[derive(Debug, Clone, ::serde::Serialize, ::serde::Deserialize)]
             #[allow(dead_code)]
             #(#attrs)*
             #vis enum #enum_name {

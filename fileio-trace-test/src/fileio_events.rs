@@ -2,28 +2,208 @@ use fileio_events_macro::fileio_events;
 
 fileio_events! {
     pub enum FileIoEvent {
+        // ── FileIo V0 (EventVersion 0) ──────────────────────────────
+
+        NameV0 = (0, 0) {
+            FileObject: pointer "FileObject",
+            FileName: string "FileName",
+        },
+
+        // ── FileIo V1 (EventVersion 1) ──────────────────────────────
+
+        NameV1 = (0, 1) {
+            FileObject: pointer "FileObject",
+            FileName: string "FileName",
+        },
+        FileCreateV1 = (32, 1) {
+            FileObject: pointer "FileObject",
+            FileName: string "FileName",
+        },
+
+        // ── FileIo V2 (EventVersion 2) ──────────────────────────────
+
+        NameV2 = (0, 2) {
+            FileObject: pointer "FileObject",
+            FileName: string "FileName",
+        },
+        FileCreateV2 = (32, 2) {
+            FileObject: pointer "FileObject",
+            FileName: string "FileName",
+        },
+        FileDeleteV2 = (35, 2) {
+            FileObject: pointer "FileObject",
+            FileName: string "FileName",
+        },
+        FileRundownV2 = (36, 2) {
+            FileObject: pointer "FileObject",
+            FileName: string "FileName",
+        },
+
+        MapFileV2 = (37, 2) {
+            ViewBase: pointer "ViewBase",
+            FileObject: pointer "FileObject",
+            MiscInfo: u64 "MiscInfo",
+            ViewSize: u64 "ViewSize",
+            ProcessId: u32 "ProcessId",
+        },
+        UnmapFileV2 = (38, 2) {
+            ViewBase: pointer "ViewBase",
+            FileObject: pointer "FileObject",
+            MiscInfo: u64 "MiscInfo",
+            ViewSize: u64 "ViewSize",
+            ProcessId: u32 "ProcessId",
+        },
+        MapFileDCStartV2 = (39, 2) {
+            ViewBase: pointer "ViewBase",
+            FileObject: pointer "FileObject",
+            MiscInfo: u64 "MiscInfo",
+            ViewSize: u64 "ViewSize",
+            ProcessId: u32 "ProcessId",
+        },
+        MapFileDCEndV2 = (40, 2) {
+            ViewBase: pointer "ViewBase",
+            FileObject: pointer "FileObject",
+            MiscInfo: u64 "MiscInfo",
+            ViewSize: u64 "ViewSize",
+            ProcessId: u32 "ProcessId",
+        },
+
+        CreateV2 = (64, 2) {
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            CreateOptions: u32 "CreateOptions",
+            FileAttributes: u32 "FileAttributes",
+            ShareAccess: u32 "ShareAccess",
+            OpenPath: string "OpenPath",
+        },
+
+        CleanupV2 = (65, 2) {
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+        },
+        CloseV2 = (66, 2) {
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+        },
+        FlushV2 = (73, 2) {
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+        },
+
+        ReadV2 = (67, 2) {
+            Offset: u64 "Offset",
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+            IoSize: u32 "IoSize",
+            IoFlags: u32 "IoFlags",
+        },
+        WriteV2 = (68, 2) {
+            Offset: u64 "Offset",
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+            IoSize: u32 "IoSize",
+            IoFlags: u32 "IoFlags",
+        },
+
+        SetInfoV2 = (69, 2) {
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+            ExtraInfo: pointer "ExtraInfo",
+            InfoClass: u32 "InfoClass",
+        },
+        DeleteV2 = (70, 2) {
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+            ExtraInfo: pointer "ExtraInfo",
+            InfoClass: u32 "InfoClass",
+        },
+        RenameV2 = (71, 2) {
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+            ExtraInfo: pointer "ExtraInfo",
+            InfoClass: u32 "InfoClass",
+        },
+        QueryInfoV2 = (74, 2) {
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+            ExtraInfo: pointer "ExtraInfo",
+            InfoClass: u32 "InfoClass",
+        },
+        FSControlV2 = (75, 2) {
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+            ExtraInfo: pointer "ExtraInfo",
+            InfoClass: u32 "InfoClass",
+        },
+
+        DirEnumV2 = (72, 2) {
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+            Length: u32 "Length",
+            InfoClass: u32 "InfoClass",
+            FileIndex: u32 "FileIndex",
+            FileName: string "FileName",
+        },
+        DirNotifyV2 = (77, 2) {
+            IrpPtr: pointer "IrpPtr",
+            TTID: pointer "TTID",
+            FileObject: pointer "FileObject",
+            FileKey: pointer "FileKey",
+            Length: u32 "Length",
+            InfoClass: u32 "InfoClass",
+            FileIndex: u32 "FileIndex",
+            FileName: string "FileName",
+        },
+
+        OperationEndV2 = (76, 2) {
+            IrpPtr: pointer "IrpPtr",
+            ExtraInfo: pointer "ExtraInfo",
+            NtStatus: u32 "NtStatus",
+        },
+
         // ── FileIo V3 (EventVersion 3) ──────────────────────────────
 
-        // FileIo_Name events (EventType 0, 32, 35, 36)
-        Name = (0, 3) {
+        NameV3 = (0, 3) {
             FileObject: pointer "FileObject",
             FileName: string "FileName",
         },
-        FileCreate = (32, 3) {
+        FileCreateV3 = (32, 3) {
             FileObject: pointer "FileObject",
             FileName: string "FileName",
         },
-        FileDelete = (35, 3) {
+        FileDeleteV3 = (35, 3) {
             FileObject: pointer "FileObject",
             FileName: string "FileName",
         },
-        FileRundown = (36, 3) {
+        FileRundownV3 = (36, 3) {
             FileObject: pointer "FileObject",
             FileName: string "FileName",
         },
 
-        // FileIo_Create (EventType 64)
-        Create = (64, 3) {
+        CreateV3 = (64, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             TTID: u32 "TTID",
@@ -33,28 +213,26 @@ fileio_events! {
             OpenPath: string "OpenPath",
         },
 
-        // FileIo_SimpleOp events (EventType 65, 66, 73)
-        Cleanup = (65, 3) {
+        CleanupV3 = (65, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
             TTID: u32 "TTID",
         },
-        Close = (66, 3) {
+        CloseV3 = (66, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
             TTID: u32 "TTID",
         },
-        Flush = (73, 3) {
+        FlushV3 = (73, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
             TTID: u32 "TTID",
         },
 
-        // FileIo_ReadWrite events (EventType 67, 68)
-        Read = (67, 3) {
+        ReadV3 = (67, 3) {
             Offset: u64 "Offset",
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
@@ -63,7 +241,7 @@ fileio_events! {
             IoSize: u32 "IoSize",
             IoFlags: u32 "IoFlags",
         },
-        Write = (68, 3) {
+        WriteV3 = (68, 3) {
             Offset: u64 "Offset",
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
@@ -73,8 +251,7 @@ fileio_events! {
             IoFlags: u32 "IoFlags",
         },
 
-        // FileIo_Info events (EventType 69, 70, 71, 74, 75)
-        SetInfo = (69, 3) {
+        SetInfoV3 = (69, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
@@ -82,7 +259,7 @@ fileio_events! {
             TTID: u32 "TTID",
             InfoClass: u32 "InfoClass",
         },
-        DeleteInfo = (70, 3) {
+        DeleteInfoV3 = (70, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
@@ -90,7 +267,7 @@ fileio_events! {
             TTID: u32 "TTID",
             InfoClass: u32 "InfoClass",
         },
-        RenameInfo = (71, 3) {
+        RenameV3 = (71, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
@@ -98,7 +275,7 @@ fileio_events! {
             TTID: u32 "TTID",
             InfoClass: u32 "InfoClass",
         },
-        QueryInfo = (74, 3) {
+        QueryInfoV3 = (74, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
@@ -106,7 +283,7 @@ fileio_events! {
             TTID: u32 "TTID",
             InfoClass: u32 "InfoClass",
         },
-        FSControl = (75, 3) {
+        FSControlV3 = (75, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
@@ -115,8 +292,7 @@ fileio_events! {
             InfoClass: u32 "InfoClass",
         },
 
-        // FileIo_DirEnum events (EventType 72, 77)
-        DirEnum = (72, 3) {
+        DirEnumV3 = (72, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
@@ -126,7 +302,7 @@ fileio_events! {
             FileIndex: u32 "FileIndex",
             FileName: string "FileName",
         },
-        DirNotify = (77, 3) {
+        DirNotifyV3 = (77, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
@@ -137,8 +313,7 @@ fileio_events! {
             FileName: string "FileName",
         },
 
-        // FileIo_PathOperation events (EventType 79, 80, 81)
-        DeletePath = (79, 3) {
+        DeletePathV3 = (79, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
@@ -147,7 +322,7 @@ fileio_events! {
             InfoClass: u32 "InfoClass",
             FileName: string "FileName",
         },
-        RenamePath = (80, 3) {
+        RenamePathV3 = (80, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
@@ -156,7 +331,7 @@ fileio_events! {
             InfoClass: u32 "InfoClass",
             FileName: string "FileName",
         },
-        SetLinkPath = (81, 3) {
+        SetLinkPathV3 = (81, 3) {
             IrpPtr: pointer "IrpPtr",
             FileObject: pointer "FileObject",
             FileKey: pointer "FileKey",
@@ -166,15 +341,13 @@ fileio_events! {
             FileName: string "FileName",
         },
 
-        // FileIo_OpEnd (EventType 76)
-        OperationEnd = (76, 3) {
+        OperationEndV3 = (76, 3) {
             IrpPtr: pointer "IrpPtr",
             ExtraInfo: pointer "ExtraInfo",
             NtStatus: u32 "NtStatus",
         },
 
-        // FltIoInit events (EventType 96, 97)
-        PreOpInit = (96, 3) {
+        PreOpInitV3 = (96, 3) {
             RoutineAddr: pointer "RoutineAddr",
             FileObject: pointer "FileObject",
             FileContext: pointer "FileContext",
@@ -182,7 +355,7 @@ fileio_events! {
             CallbackDataPtr: pointer "CallbackDataPtr",
             MajorFunction: u32 "MajorFunction",
         },
-        PostOpInit = (97, 3) {
+        PostOpInitV3 = (97, 3) {
             RoutineAddr: pointer "RoutineAddr",
             FileObject: pointer "FileObject",
             FileContext: pointer "FileContext",
@@ -191,8 +364,7 @@ fileio_events! {
             MajorFunction: u32 "MajorFunction",
         },
 
-        // FltIoCompletion events (EventType 98, 99)
-        PreOpCompletion = (98, 3) {
+        PreOpCompletionV3 = (98, 3) {
             InitialTime: u64 "InitialTime",
             RoutineAddr: pointer "RoutineAddr",
             FileObject: pointer "FileObject",
@@ -201,7 +373,7 @@ fileio_events! {
             CallbackDataPtr: pointer "CallbackDataPtr",
             MajorFunction: u32 "MajorFunction",
         },
-        PostOpCompletion = (99, 3) {
+        PostOpCompletionV3 = (99, 3) {
             InitialTime: u64 "InitialTime",
             RoutineAddr: pointer "RoutineAddr",
             FileObject: pointer "FileObject",
@@ -211,8 +383,7 @@ fileio_events! {
             MajorFunction: u32 "MajorFunction",
         },
 
-        // FltIoFailure events (EventType 100, 101)
-        PreOpFailure = (100, 3) {
+        PreOpFailureV3 = (100, 3) {
             RoutineAddr: pointer "RoutineAddr",
             FileObject: pointer "FileObject",
             FileContext: pointer "FileContext",
@@ -221,7 +392,7 @@ fileio_events! {
             MajorFunction: u32 "MajorFunction",
             Status: u32 "Status",
         },
-        PostOpFailure = (101, 3) {
+        PostOpFailureV3 = (101, 3) {
             RoutineAddr: pointer "RoutineAddr",
             FileObject: pointer "FileObject",
             FileContext: pointer "FileContext",
