@@ -1,17 +1,14 @@
-mod events;
-mod file_ops;
-mod fileio_events;
-mod persist;
-mod trace_session;
-
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use events::{EVENT_REGISTRY, ParsedFileIoEvent};
-use trace_session::{KernelTraceSession, TraceConfig};
+use fileio_trace_test::events::{self, EVENT_REGISTRY, ParsedFileIoEvent};
+use fileio_trace_test::file_ops;
+use fileio_trace_test::persist;
+use fileio_trace_test::trace_session::{KernelTraceSession, TraceConfig};
+use fileio_trace_test::build_group_mask;
 
 const PERSIST_FILE: &str = "fileio_test_results.json";
 const EVENTS_DIR: &str = "fileio_events";
@@ -285,14 +282,7 @@ fn build_test_configs() -> Vec<TestConfig> {
     configs
 }
 
-/// Build a PERFINFO_GROUPMASK from a combined mask value
-/// The mask value has the group index encoded in the high 3 bits
-fn build_group_mask(mask_value: u32) -> [u32; 8] {
-    let mut masks = [0u32; 8];
-    let group_index = ((mask_value >> 29) & 0x07) as usize;
-    masks[group_index] = mask_value;
-    masks
-}
+
 
 /// Run a single test configuration
 fn run_single_test(config: &TestConfig) -> (Vec<events::FileIoRawEvent>, Vec<ParsedFileIoEvent>) {

@@ -1,14 +1,14 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub mod events;
+pub mod file_ops;
+pub mod fileio_events;
+pub mod persist;
+pub mod trace_session;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+/// Build a PERFINFO_GROUPMASK from a combined mask value.
+/// The mask value has the group index encoded in the high 3 bits.
+pub fn build_group_mask(mask_value: u32) -> [u32; 8] {
+    let mut masks = [0u32; 8];
+    let group_index = ((mask_value >> 29) & 0x07) as usize;
+    masks[group_index] = mask_value;
+    masks
 }
