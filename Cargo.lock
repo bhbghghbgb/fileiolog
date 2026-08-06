@@ -277,6 +277,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "flt-compare-test"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "ferrisetw",
+ "fileiolog",
+ "log",
+ "once_cell",
+ "windows",
+ "winres",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "fileio-trace-test", "fileio-trace-test/fileio-events-macro"]
+members = [".", "fileio-trace-test", "fileio-trace-test/fileio-events-macro", "flt-compare-test"]
 resolver = "3"
 
 [package]
