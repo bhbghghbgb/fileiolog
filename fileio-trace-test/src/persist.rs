@@ -4,7 +4,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::events::{EVENT_REGISTRY, FileIoEvent};
+use crate::events::{EVENT_REGISTRY, FileIoRawEvent};
 
 /// Serialized event key: "opcode:version"
 fn event_key(opcode: u8, version: u8) -> String {
@@ -85,7 +85,7 @@ pub fn save(path: &Path, data: &PersistedData) {
 }
 
 /// Compute per-config event counts from raw events
-pub fn compute_counts(events: &[FileIoEvent]) -> HashMap<String, usize> {
+pub fn compute_counts(events: &[FileIoRawEvent]) -> HashMap<String, usize> {
     let mut counts: HashMap<String, usize> = HashMap::new();
     for event in events {
         let key = event_key(event.opcode, event.version);

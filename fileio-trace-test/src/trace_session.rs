@@ -10,7 +10,7 @@ use windows::Win32::System::Diagnostics::Etw::{
 };
 use windows::core::{GUID, PCWSTR};
 
-use crate::events;
+use crate::events::{self, FileIoEvent, ParsedFileIoEvent};
 
 /// FileIo Provider GUID
 const FILE_IO_GUID: GUID = GUID::from_u128(0x90cbdc39_4a3e_11d1_84f4_0000f80464e3);
@@ -47,9 +47,11 @@ impl KernelTraceSession {
     /// Events will be pushed to the provided `collected_events` vector.
     pub fn start(
         &mut self,
-        collected_events: Arc<Mutex<Vec<events::FileIoEvent>>>,
+        collected_events: Arc<Mutex<Vec<events::FileIoRawEvent>>>,
+        parsed_events: Arc<Mutex<Vec<ParsedFileIoEvent>>>,
     ) -> Result<PROCESSTRACE_HANDLE, Box<dyn std::error::Error>> {
-        let events_clone = collected_events;
+        let raw_events_clone = collected_events;
+        let parsed_events_clone = parsed_events;
 
         // Create a kernel provider with the FILE_IO_GUID and the specified flags
         // The library will OR these flags into the trace's EnableFlags
@@ -63,7 +65,7 @@ impl KernelTraceSession {
             .any(0) // Match all keywords
             .all(0)
             .add_callback(
-                move |record: &EventRecord, _schema_locator: &SchemaLocator| {
+                move |record: &EventRecord, schema_locator: &SchemaLocator| {
                     let opcode = record.opcode();
                     let event_id = record.event_id();
                     let version = record.version();
@@ -71,12 +73,12 @@ impl KernelTraceSession {
                     let process_id = record.process_id();
                     let thread_id = record.thread_id();
 
-                    // Log the event
+                    // Log the raw event
                     events::log_event(opcode, event_id, version, timestamp, process_id, thread_id);
 
-                    // Store the event
-                    if let Ok(mut events) = events_clone.lock() {
-                        events.push(events::FileIoEvent {
+                    // Store the raw event
+                    if let Ok(mut events) = raw_events_clone.lock() {
+                        events.push(events::FileIoRawEvent {
                             opcode,
                             event_id,
                             version,
@@ -84,6 +86,25 @@ impl KernelTraceSession {
                             process_id,
                             thread_id,
                         });
+                    }
+
+                    // Try to parse the event and store the parsed data
+                    if let Some(parsed) = FileIoEvent::try_parse(record, schema_locator) {
+                        log::trace!(
+                            "Parsed FileIo event: opcode={}, version={}, data={:?}",
+                            opcode, version, parsed
+                        );
+                        if let Ok(mut events) = parsed_events_clone.lock() {
+                            events.push(ParsedFileIoEvent {
+                                opcode,
+                                event_id,
+                                version,
+                                timestamp,
+                                process_id,
+                                thread_id,
+                                event: parsed,
+                            });
+                        }
                     }
                 },
             )

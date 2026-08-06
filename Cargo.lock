@@ -233,11 +233,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "fileio-events-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "fileio-trace-test"
 version = "0.1.0"
 dependencies = [
  "env_logger",
+ "etw-macros",
  "ferrisetw",
+ "fileio-events-macro",
+ "fileiolog",
  "log",
  "memmap2",
  "once_cell",

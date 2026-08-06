@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
 
+// Re-export macro-generated types
+pub use crate::fileio_events::FileIoEvent;
+
 /// Represents a known FileIo event type
 /// For kernel tracing, the key is (opcode, version) not (event_id, version)
 #[derive(Debug, Clone)]
@@ -14,16 +17,29 @@ pub struct FileIoEventDef {
     pub description: &'static str,
 }
 
-/// Represents a received FileIo event
+/// Represents a received FileIo event (raw, before parsing)
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct FileIoEvent {
+pub struct FileIoRawEvent {
     pub opcode: u8,
     pub event_id: u16,
     pub version: u8,
     pub timestamp: u64,
     pub process_id: u32,
     pub thread_id: u32,
+}
+
+/// Represents a parsed FileIo event with data
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct ParsedFileIoEvent {
+    pub opcode: u8,
+    pub event_id: u16,
+    pub version: u8,
+    pub timestamp: u64,
+    pub process_id: u32,
+    pub thread_id: u32,
+    pub event: FileIoEvent,
 }
 
 /// Static registry of all known FileIo events
@@ -410,7 +426,7 @@ pub static EVENT_REGISTRY: Lazy<HashMap<(u8, u8), FileIoEventDef>> = Lazy::new(|
 static WARNED_UNKNOWN: once_cell::sync::Lazy<Mutex<Vec<(u8, u8)>>> =
     once_cell::sync::Lazy::new(|| Mutex::new(Vec::new()));
 
-/// Log an event, handling unknown events with warn-once semantics
+/// Log a raw event, handling unknown events with warn-once semantics
 pub fn log_event(opcode: u8, event_id: u16, version: u8, _timestamp: u64, process_id: u32, thread_id: u32) {
     let key = (opcode, version);
 
