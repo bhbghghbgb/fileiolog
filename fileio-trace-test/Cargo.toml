@@ -3,10 +3,6 @@ name = "fileio-trace-test"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-name = "fileio_trace_test"
-path = "src/lib.rs"
-
 [dependencies]
 ferrisetw = { git = "https://github.com/n4r1b/ferrisetw", rev = "22caa099ea57a295b0e4cf91a741771bfde6bc0d", features = ["time_rs"] }
 env_logger = "0.11.11"
