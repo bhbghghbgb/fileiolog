@@ -1,82 +1,190 @@
 {
-  "heuristic_scores": {
-    "Exclusive (no overlap)": 98.77637636745762,
-    "FASTIO ⊂ IO": 0.8023846709430589,
-    "Partial overlap": 51.22362363254237,
-    "Same events": 31.297730847503168
+  "best": "Disjoint / exclusive",
+  "discriminator": {
+    "fastio_fast_frac": 1.0,
+    "io_fast_frac": 0.0
   },
-  "passes": [
+  "major_functions": [
     {
-      "count_fastio": 26716,
-      "count_io": 17845,
-      "distribution_match": false,
-      "match_ratio_a": 0.037881759596525635,
-      "match_ratio_b": 0.025303189100164696,
-      "matched_pairs": 676,
-      "pass": 1,
-      "ratio": 1.497114037545531,
-      "unique_to_fastio": 26040,
-      "unique_to_io": 17169
+      "both_fast": 762,
+      "both_nonfast": 0,
+      "fastio": 2077,
+      "io": 0,
+      "mj": 242
     },
     {
-      "count_fastio": 11329,
-      "count_io": 7385,
-      "distribution_match": false,
-      "match_ratio_a": 0.03033175355450237,
-      "match_ratio_b": 0.019772265866360668,
-      "matched_pairs": 224,
-      "pass": 2,
-      "ratio": 1.5340555179417739,
-      "unique_to_fastio": 11105,
-      "unique_to_io": 7161
+      "both_fast": 2538,
+      "both_nonfast": 5492,
+      "fastio": 192,
+      "io": 4521,
+      "mj": 4
     },
     {
-      "count_fastio": 11774,
-      "count_io": 9831,
-      "distribution_match": false,
-      "match_ratio_a": 0.024616010578781405,
-      "match_ratio_b": 0.020553762527603193,
-      "matched_pairs": 242,
-      "pass": 3,
-      "ratio": 1.1976401179941003,
-      "unique_to_fastio": 11532,
-      "unique_to_io": 9589
+      "both_fast": 0,
+      "both_nonfast": 320,
+      "fastio": 0,
+      "io": 464,
+      "mj": 10
     },
     {
-      "count_fastio": 11784,
-      "count_io": 7885,
-      "distribution_match": false,
-      "match_ratio_a": 0.026886493341788206,
-      "match_ratio_b": 0.01799049558723693,
-      "matched_pairs": 212,
-      "pass": 4,
-      "ratio": 1.4944831959416613,
-      "unique_to_fastio": 11572,
-      "unique_to_io": 7673
+      "both_fast": 1064,
+      "both_nonfast": 0,
+      "fastio": 116,
+      "io": 0,
+      "mj": 250
     },
     {
-      "count_fastio": 11392,
-      "count_io": 7689,
-      "distribution_match": false,
-      "match_ratio_a": 0.024710625568994667,
-      "match_ratio_b": 0.016678370786516853,
-      "matched_pairs": 190,
-      "pass": 5,
-      "ratio": 1.4815970867473014,
-      "unique_to_fastio": 11202,
-      "unique_to_io": 7499
+      "both_fast": 0,
+      "both_nonfast": 6,
+      "fastio": 0,
+      "io": 0,
+      "mj": 21
+    },
+    {
+      "both_fast": 1204,
+      "both_nonfast": 0,
+      "fastio": 1176,
+      "io": 0,
+      "mj": 17
+    },
+    {
+      "both_fast": 1064,
+      "both_nonfast": 0,
+      "fastio": 116,
+      "io": 0,
+      "mj": 251
+    },
+    {
+      "both_fast": 2545,
+      "both_nonfast": 0,
+      "fastio": 7050,
+      "io": 0,
+      "mj": 255
+    },
+    {
+      "both_fast": 38,
+      "both_nonfast": 38,
+      "fastio": 22,
+      "io": 38,
+      "mj": 14
+    },
+    {
+      "both_fast": 750,
+      "both_nonfast": 379,
+      "fastio": 10974,
+      "io": 416,
+      "mj": 3
+    },
+    {
+      "both_fast": 0,
+      "both_nonfast": 8436,
+      "fastio": 0,
+      "io": 10170,
+      "mj": 18
+    },
+    {
+      "both_fast": 0,
+      "both_nonfast": 72,
+      "fastio": 0,
+      "io": 98,
+      "mj": 7
+    },
+    {
+      "both_fast": 0,
+      "both_nonfast": 1347,
+      "fastio": 0,
+      "io": 1602,
+      "mj": 6
+    },
+    {
+      "both_fast": 0,
+      "both_nonfast": 2534,
+      "fastio": 0,
+      "io": 2908,
+      "mj": 12
+    },
+    {
+      "both_fast": 1266,
+      "both_nonfast": 0,
+      "fastio": 3476,
+      "io": 0,
+      "mj": 254
+    },
+    {
+      "both_fast": 0,
+      "both_nonfast": 1736,
+      "fastio": 0,
+      "io": 2140,
+      "mj": 13
+    },
+    {
+      "both_fast": 0,
+      "both_nonfast": 105,
+      "fastio": 0,
+      "io": 39,
+      "mj": 9
+    },
+    {
+      "both_fast": 0,
+      "both_nonfast": 4151,
+      "fastio": 0,
+      "io": 5120,
+      "mj": 2
+    },
+    {
+      "both_fast": 3219,
+      "both_nonfast": 2867,
+      "fastio": 8643,
+      "io": 3403,
+      "mj": 5
+    },
+    {
+      "both_fast": 0,
+      "both_nonfast": 36,
+      "fastio": 0,
+      "io": 38,
+      "mj": 20
+    },
+    {
+      "both_fast": 0,
+      "both_nonfast": 13132,
+      "fastio": 0,
+      "io": 15392,
+      "mj": 0
     }
   ],
-  "summary": {
-    "best_hypothesis": "Exclusive (no overlap)",
-    "confidence": 98.77637636745762,
-    "distribution_match_rate": 0.0,
-    "mean_match_ratio_a": 0.028885328528118454,
-    "mean_match_ratio_b": 0.02005961677357647,
-    "mean_ratio": 1.4409779912340734,
-    "num_passes": 5,
-    "ratio_consistency": 0.8294003224414791,
-    "total_unique_to_fastio": 71451,
-    "total_unique_to_io": 49091
+  "num_passes": 5,
+  "scores": [
+    [
+      "Disjoint / exclusive",
+      83.33172967255108
+    ],
+    [
+      "FASTIO is a (proper) subset of IO",
+      73.87662057111608
+    ],
+    [
+      "Same events",
+      58.666666666666664
+    ],
+    [
+      "Partial overlap",
+      35.0
+    ]
+  ],
+  "totals": {
+    "both": 55101,
+    "both_fast": 14450,
+    "both_nonfast": 40651,
+    "fastio": {
+      "fast": 33842,
+      "nonfast": 0,
+      "total": 33842
+    },
+    "io": {
+      "fast": 0,
+      "nonfast": 46349,
+      "total": 46349
+    }
   }
 }

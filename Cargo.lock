@@ -498,6 +498,7 @@ dependencies = [
  "ferrisetw",
  "fileiolog",
  "log",
+ "memmap2",
  "serde",
  "serde_json",
  "windows",

@@ -213,7 +213,9 @@ impl KernelTraceSession {
         let result = unsafe {
             Etw::TraceSetInformation(
                 control_handle,
-                std::mem::transmute(TRACE_SYSTEM_TRACE_ENABLE_FLAGS_INFO),
+                std::mem::transmute::<i32, Etw::TRACE_QUERY_INFO_CLASS>(
+                    TRACE_SYSTEM_TRACE_ENABLE_FLAGS_INFO,
+                ),
                 masks.as_ptr() as *const std::ffi::c_void,
                 std::mem::size_of::<[u32; 8]>() as u32,
             )

@@ -2,20 +2,20 @@ mod analysis;
 mod event;
 mod session;
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use event::{build_group_mask, RawEvent};
+use analysis::{Hypothesis, PassResult, Verdict};
+use event::{Config, RawEvent};
 use session::{KernelTraceSession, TraceConfig};
-
-const PERF_FLT_IO: u32 = 0x80100000;
-const PERF_FLT_FASTIO: u32 = 0x80200000;
 
 const NUM_PASSES: usize = 5;
 const SESSION_WARMUP_MS: u64 = 500;
 const COLLECTION_SECS: u64 = 8;
+const PAUSE_BETWEEN_CONFIGS_SECS: u64 = 1;
 const PAUSE_BETWEEN_PASSES_SECS: u64 = 2;
 
 fn main() {
@@ -23,320 +23,299 @@ fn main() {
         .format_timestamp_millis()
         .init();
 
-    log::info!("=== PERF_FLT_IO vs PERF_FLT_FASTIO Comparison ===");
-    log::info!(
-        "PERF_FLT_IO      = 0x{:08X} (FltIoCompletion events)",
-        PERF_FLT_IO
-    );
-    log::info!(
-        "PERF_FLT_FASTIO  = 0x{:08X} (FltIoCompletion events)",
-        PERF_FLT_FASTIO
-    );
-    log::info!(
-        "Running {} concurrent dual-session passes...",
-        NUM_PASSES
-    );
+    log::info!("=== PERF_FLT_IO vs PERF_FLT_FASTIO: intrinsic-discriminator comparison ===");
+    log::info!("Research basis: PERF_FLT_IO = SYSTEM_IOFILTER_KW_GENERAL (IRP-based),");
+    log::info!("                PERF_FLT_FASTIO = SYSTEM_IOFILTER_KW_FASTIO (cached fast I/O).");
+    log::info!("Hypothesis to validate empirically: fast-I/O events have IrpPtr == 0.");
+    log::info!("");
+    log::info!("Running {} passes x 3 configs (FASTIO, IO, BOTH), same fixed workload each.",
+        NUM_PASSES);
     log::info!("");
 
-    let mut all_passes: Vec<analysis::ComparisonResult> = Vec::new();
+    let mut passes: Vec<PassResult> = Vec::new();
 
-    for pass_num in 1..=NUM_PASSES {
-        log::info!("--- Pass {}/{} ---", pass_num, NUM_PASSES);
+    for pass in 1..=NUM_PASSES {
+        log::info!("--- Pass {}/{} ---", pass, NUM_PASSES);
 
-        let (events_io, events_fastio) = run_pass(pass_num);
+        let mut fastio = Vec::new();
+        let mut io = Vec::new();
+        let mut both = Vec::new();
 
-        log::info!(
-            "  PERF_FLT_IO captured {} FltIoCompletion events",
-            events_io.len()
-        );
-        log::info!(
-            "  PERF_FLT_FASTIO captured {} FltIoCompletion events",
-            events_fastio.len()
-        );
+        for cfg in Config::ALL {
+            log::info!("  Config: {} (group 0x{:08X})", cfg.name(), cfg.group_value());
+            let events = run_config(pass, cfg);
+            log::info!(
+                "    captured {} FltIoCompletion events ({} fast, {} non-fast)",
+                events.len(),
+                events.iter().filter(|e| e.is_fast()).count(),
+                events.iter().filter(|e| !e.is_fast()).count()
+            );
+            match cfg {
+                Config::FastIoOnly => fastio = events,
+                Config::IoOnly => io = events,
+                Config::Both => both = events,
+            }
 
-        let result = analysis::compare_sessions(&events_io, &events_fastio);
-
-        log::info!(
-            "  Ratio (FASTIO/IO): {:.4}",
-            result.ratio
-        );
-        log::info!(
-            "  Matched pairs: {} (A→B: {:.2}%, B→A: {:.2}%)",
-            result.matched_pairs,
-            result.match_ratio_a * 100.0,
-            result.match_ratio_b * 100.0
-        );
-        log::info!(
-            "  Unique to IO: {}, Unique to FASTIO: {}",
-            result.unique_to_a,
-            result.unique_to_b
-        );
-        log::info!(
-            "  MajorFunction distributions match: {}",
-            result.distribution_match
-        );
-        if !result.distribution_match {
-            log::info!("    IO dist:      {:?}", result.major_func_dist_a);
-            log::info!("    FASTIO dist:  {:?}", result.major_func_dist_b);
+            if cfg != Config::Both {
+                std::thread::sleep(Duration::from_secs(PAUSE_BETWEEN_CONFIGS_SECS));
+            }
         }
 
-        all_passes.push(result);
+        let pr = analysis::score_pass(pass, &fastio, &io, &both);
+        log::info!(
+            "  [pass {}] IrpPtr==0 fraction: FASTIO={:.1}%, IO={:.1}%",
+            pass,
+            pr.fastio.fast_frac() * 100.0,
+            pr.io.fast_frac() * 100.0
+        );
+        log::info!(
+            "  [pass {}] Both partition: fast={} events ({} majors), nonfast={} events ({} majors)",
+            pass,
+            pr.both_fast.total,
+            pr.both_fast.majors.len(),
+            pr.both_nonfast.total,
+            pr.both_nonfast.majors.len()
+        );
 
-        if pass_num < NUM_PASSES {
-            log::info!(
-                "  Pausing {}s before next pass...",
-                PAUSE_BETWEEN_PASSES_SECS
-            );
+        passes.push(pr);
+
+        if pass < NUM_PASSES {
+            log::info!("  Pausing {}s before next pass...", PAUSE_BETWEEN_PASSES_SECS);
             std::thread::sleep(Duration::from_secs(PAUSE_BETWEEN_PASSES_SECS));
         }
     }
 
-    // Analyze all passes
     log::info!("");
-    log::info!("=== ANALYSIS ===");
-    let verdict = analysis::analyze_passes(&all_passes);
+    log::info!("=== ANALYSIS (pooled over {} passes) ===", passes.len());
+    let verdict = analysis::analyze(&passes);
     display_verdict(&verdict);
-
-    // Save results to file
     save_results(&verdict);
 }
 
-/// Run a single pass: start both sessions simultaneously, collect events.
-fn run_pass(pass_num: usize) -> (Vec<RawEvent>, Vec<RawEvent>) {
-    let events_io: Arc<Mutex<Vec<RawEvent>>> = Arc::new(Mutex::new(Vec::new()));
-    let events_fastio: Arc<Mutex<Vec<RawEvent>>> = Arc::new(Mutex::new(Vec::new()));
+/// Run a single trace session for the given configuration.
+fn run_config(pass: usize, cfg: Config) -> Vec<RawEvent> {
+    let events: Arc<Mutex<Vec<RawEvent>>> = Arc::new(Mutex::new(Vec::new()));
+    let events_cb = events.clone();
 
-    let io_events = events_io.clone();
-    let fastio_events = events_fastio.clone();
+    let session_name = format!("FltCmp_{}_{}", cfg.name(), pass);
 
-    // Session names must be unique across passes
-    let io_name = format!("FltCmp_IO_P{}", pass_num);
-    let fastio_name = format!("FltCmp_FIO_P{}", pass_num);
-
-    // Create sessions
-    let io_config = TraceConfig {
-        session_name: io_name.clone(),
-        group_mask: build_group_mask(PERF_FLT_IO),
-    };
-    let fastio_config = TraceConfig {
-        session_name: fastio_name.clone(),
-        group_mask: build_group_mask(PERF_FLT_FASTIO),
+    let trace_config = TraceConfig {
+        session_name: session_name.clone(),
+        group_mask: event::build_group_mask(cfg.group_value()),
     };
 
-    let mut io_session = match KernelTraceSession::new(io_config) {
+    let mut session = match KernelTraceSession::new(trace_config) {
         Ok(s) => s,
         Err(e) => {
-            log::error!("Failed to create IO session: {:?}", e);
-            return (Vec::new(), Vec::new());
-        }
-    };
-    let mut fastio_session = match KernelTraceSession::new(fastio_config) {
-        Ok(s) => s,
-        Err(e) => {
-            log::error!("Failed to create FASTIO session: {:?}", e);
-            return (Vec::new(), Vec::new());
+            log::error!("Failed to create session {}: {:?}", session_name, e);
+            return Vec::new();
         }
     };
 
-    // Start both sessions
-    let io_handle = match io_session.start(io_events) {
+    let handle = match session.start(events_cb) {
         Ok(h) => h,
         Err(e) => {
-            log::error!("Failed to start IO session: {:?}", e);
-            return (Vec::new(), Vec::new());
-        }
-    };
-    let fastio_handle = match fastio_session.start(fastio_events) {
-        Ok(h) => h,
-        Err(e) => {
-            log::error!("Failed to start FASTIO session: {:?}", e);
-            return (Vec::new(), Vec::new());
+            log::error!("Failed to start session {}: {:?}", session_name, e);
+            return Vec::new();
         }
     };
 
-    // Spawn processing threads
-    let io_thread = std::thread::spawn(move || {
+    let proc_thread = std::thread::spawn(move || {
         use ferrisetw::trace::TraceTrait;
-        let _ = <ferrisetw::trace::KernelTrace as TraceTrait>::process_from_handle(io_handle);
-    });
-    let fastio_thread = std::thread::spawn(move || {
-        use ferrisetw::trace::TraceTrait;
-        let _ =
-            <ferrisetw::trace::KernelTrace as TraceTrait>::process_from_handle(fastio_handle);
+        let _ = <ferrisetw::trace::KernelTrace as TraceTrait>::process_from_handle(handle);
     });
 
-    // Warm up
     std::thread::sleep(Duration::from_millis(SESSION_WARMUP_MS));
 
-    // Trigger file I/O to generate FltIoCompletion events
-    log::info!("  Triggering file I/O operations...");
     trigger_io();
 
-    // Wait for events to arrive
-    log::info!(
-        "  Collecting events ({}s)...",
-        COLLECTION_SECS
-    );
     std::thread::sleep(Duration::from_secs(COLLECTION_SECS));
 
-    // Stop both sessions
-    log::info!("  Stopping sessions...");
-    let _ = io_session.stop();
-    let _ = fastio_session.stop();
+    let _ = session.stop();
+    let _ = proc_thread.join();
 
-    // Wait for processing threads
-    let _ = io_thread.join();
-    let _ = fastio_thread.join();
-
-    let io_result = events_io.lock().unwrap().clone();
-    let fastio_result = events_fastio.lock().unwrap().clone();
-
-    (io_result, fastio_result)
+    events.lock().unwrap().clone()
 }
 
-/// Trigger file I/O operations to generate FltIoCompletion events.
+/// Identical, fixed file-system workload used by every configuration so that
+/// fingerprints are directly comparable.
 fn trigger_io() {
     let test_dir = Path::new("C:\\temp_flt_compare");
 
     let _ = fs::create_dir_all(test_dir);
 
-    // Create files
+    // Create files (IRP-heavy path).
     for i in 0..10 {
-        let path = test_dir.join(format!("test_{}.dat", i));
+        let path = test_dir.join(format!("t_{}.dat", i));
         let _ = fs::write(&path, format!("data {}", i));
     }
 
-    // Read files
+    // Read back (cached -> fast I/O eligible).
     for i in 0..10 {
-        let path = test_dir.join(format!("test_{}.dat", i));
+        let path = test_dir.join(format!("t_{}.dat", i));
         let _ = fs::read(&path);
     }
 
-    // Write files
+    // Write again (cached -> fast I/O eligible).
     for i in 0..10 {
-        let path = test_dir.join(format!("test_{}.dat", i));
+        let path = test_dir.join(format!("t_{}.dat", i));
         let _ = fs::write(&path, format!("updated {}", i));
     }
 
-    // Flush
+    // Open + write + flush via OpenOptions.
     for i in 0..5 {
-        let path = test_dir.join(format!("test_{}.dat", i));
+        let path = test_dir.join(format!("t_{}.dat", i));
         if let Ok(mut file) = std::fs::OpenOptions::new().write(true).open(&path) {
             use std::io::Write;
+            let _ = file.write_all(b"flush payload");
             let _ = file.flush();
         }
     }
 
-    // Delete files
+    // Memory-mapped read+write.
+    trigger_mmap(test_dir);
+
+    // Delete files (IRP-heavy path).
     for i in 0..10 {
-        let path = test_dir.join(format!("test_{}.dat", i));
+        let path = test_dir.join(format!("t_{}.dat", i));
         let _ = fs::remove_file(&path);
     }
 
     let _ = fs::remove_dir_all(test_dir);
 }
 
-/// Display the final verdict
-fn display_verdict(verdict: &analysis::AnalysisVerdict) {
-    log::info!("Number of passes: {}", verdict.num_passes);
-    log::info!(
-        "Mean ratio (FASTIO/IO): {:.4}",
-        verdict.mean_ratio
-    );
-    log::info!(
-        "Ratio consistency: {:.2}%",
-        verdict.ratio_consistency * 100.0
-    );
-    log::info!(
-        "Distribution match rate: {:.2}%",
-        verdict.distribution_match_rate * 100.0
-    );
-    log::info!(
-        "Mean match ratio A→B (IO→FASTIO): {:.2}%",
-        verdict.mean_match_ratio_a * 100.0
-    );
-    log::info!(
-        "Mean match ratio B→A (FASTIO→IO): {:.2}%",
-        verdict.mean_match_ratio_b * 100.0
-    );
-    log::info!(
-        "Total unique to IO (across all passes): {}",
-        verdict.total_unique_to_a
-    );
-    log::info!(
-        "Total unique to FASTIO (across all passes): {}",
-        verdict.total_unique_to_b
-    );
-    log::info!("");
+fn trigger_mmap(dir: &Path) {
+    use std::fs::OpenOptions;
+    use std::io::Write;
 
-    log::info!("--- Heuristic Scores ---");
-    let mut sorted_scores: Vec<_> = verdict.heuristic_scores.iter().collect();
-    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
-    for (hypothesis, score) in &sorted_scores {
-        log::info!("  {:<25} {:.1}%", hypothesis, score);
+    let path = dir.join("t_mmap.bin");
+    {
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)
+            .unwrap();
+        file.write_all(&[0u8; 8192]).unwrap();
+        file.flush().unwrap();
     }
+    let file = OpenOptions::new().read(true).write(true).open(&path).unwrap();
+    let mut mmap = unsafe { memmap2::MmapMut::map_mut(&file).unwrap() };
+    let pattern: Vec<u8> = (0..256).map(|b| b as u8).collect();
+    for slot in mmap.chunks_mut(256) {
+        slot.copy_from_slice(&pattern);
+    }
+    mmap.flush().unwrap();
+    for chunk in mmap.chunks(256) {
+        let _sum: u64 = chunk.iter().map(|&b| b as u64).sum();
+    }
+    drop(mmap);
+    drop(file);
+    let _ = fs::remove_file(&path);
+}
 
+/// Human-readable report of the verdict.
+fn display_verdict(v: &Verdict) {
+    log::info!("Number of passes: {}", v.num_passes);
     log::info!("");
-    log::info!(
-        ">>> BEST HYPOTHESIS: {} ({:.1}% confidence)",
-        verdict.best_hypothesis.0,
-        verdict.best_hypothesis.1
-    );
 
-    // Interpretation
+    log::info!("--- Discriminator validation (IrpPtr == 0) ---");
+    log::info!("  FASTIO-only run: {:.1}% of events have IrpPtr==0", v.fastio_fast_frac * 100.0);
+    log::info!("  IO-only run:     {:.1}% of events have IrpPtr==0", v.io_fast_frac * 100.0);
+    if v.fastio_fast_frac > 0.8 && v.io_fast_frac < 0.2 {
+        log::info!("  -> IrpPtr==0 is a VALID discriminator (FASTIO events carry no real IRP).");
+    } else {
+        log::info!("  -> IrpPtr==0 is NOT a clean discriminator; results below are suggestive only.");
+    }
     log::info!("");
-    log::info!("--- Interpretation ---");
-    match verdict.best_hypothesis.0.as_str() {
-        "FASTIO ⊂ IO" => {
-            log::info!("PERF_FLT_FASTIO events are a strict subset of PERF_FLT_IO events.");
-            log::info!("PERF_FLT_IO captures all FltIoCompletion events that PERF_FLT_FASTIO captures, plus additional ones.");
+
+    log::info!("--- Event totals (pooled) ---");
+    log::info!("  FASTIO: {} events (fast={}, nonfast={})", v.fastio.total, v.fastio.fast, v.fastio.nonfast);
+    log::info!("  IO:     {} events (fast={}, nonfast={})", v.io.total, v.io.fast, v.io.nonfast);
+    log::info!("  BOTH:   {} events", v.both.total);
+    log::info!("    fast partition:    {} events", v.both_fast.total);
+    log::info!("    non-fast partition:{} events", v.both_nonfast.total);
+    log::info!("");
+
+    log::info!("--- MajorFunction set comparison ---");
+    let all_majors: BTreeMap<u32, usize> = v
+        .both
+        .majors
+        .keys()
+        .chain(v.fastio.majors.keys())
+        .map(|&k| (k, 0))
+        .collect();
+    for (maj, _) in all_majors {
+        let f = v.fastio.majors.get(&maj).copied().unwrap_or(0);
+        let i = v.io.majors.get(&maj).copied().unwrap_or(0);
+        let bf = v.both_fast.majors.get(&maj).copied().unwrap_or(0);
+        let bn = v.both_nonfast.majors.get(&maj).copied().unwrap_or(0);
+        log::info!(
+            "  MJ_{:>2}: FASTIO={}  IO={}  | BOTH-fast={}  BOTH-nonfast={}",
+            maj, f, i, bf, bn
+        );
+    }
+    log::info!("");
+
+    log::info!("--- Hypothesis scores ---");
+    for (hyp, score) in &v.scores {
+        log::info!("  {:<30} {:.1}%", format!("{}", hyp), score);
+    }
+    log::info!("");
+    log::info!(">>> BEST HYPOTHESIS: {} ({:.1}%)", v.best, v.scores[0].1);
+
+    match v.best {
+        Hypothesis::Disjoint => {
+            log::info!(
+                "Interpretation: PERF_FLT_FASTIO and PERF_FLT_IO emit DIFFERENT event instances."
+            );
+            log::info!(
+                "Fast I/O (cached, IrpPtr==0) vs IRP-based I/O; sets are mutually exclusive."
+            );
         }
-        "Same events" => {
-            log::info!("PERF_FLT_FASTIO and PERF_FLT_IO enable the exact same FltIoCompletion events.");
-            log::info!("The difference in observed counts is due to ETW timing/buffer noise.");
+        Hypothesis::Subset => {
+            log::info!(
+                "Interpretation: FASTIO events are a subset of IO events (same underlying event,"
+            );
+            log::info!("  extra Fast I/O instances only surface under the IO flag).");
         }
-        "Exclusive (no overlap)" => {
-            log::info!("PERF_FLT_FASTIO and PERF_FLT_IO enable completely different sets of FltIoCompletion events.");
+        Hypothesis::PartialOverlap => {
+            log::info!(
+                "Interpretation: the two flags share some instances but each also emits unique ones."
+            );
         }
-        "Partial overlap" => {
-            log::info!("PERF_FLT_FASTIO and PERF_FLT_IO have partially overlapping but non-identical FltIoCompletion event sets.");
-        }
-        _ => {
-            log::info!("Unable to determine a clear relationship.");
+        Hypothesis::Same => {
+            log::info!("Interpretation: the flags are effectively identical for FltIoCompletion.");
         }
     }
 }
 
-/// Save results to a JSON file
-fn save_results(verdict: &analysis::AnalysisVerdict) {
+fn save_results(v: &Verdict) {
     let output = serde_json::json!({
-        "summary": {
-            "num_passes": verdict.num_passes,
-            "mean_ratio": verdict.mean_ratio,
-            "ratio_consistency": verdict.ratio_consistency,
-            "distribution_match_rate": verdict.distribution_match_rate,
-            "mean_match_ratio_a": verdict.mean_match_ratio_a,
-            "mean_match_ratio_b": verdict.mean_match_ratio_b,
-            "total_unique_to_io": verdict.total_unique_to_a,
-            "total_unique_to_fastio": verdict.total_unique_to_b,
-            "best_hypothesis": verdict.best_hypothesis.0,
-            "confidence": verdict.best_hypothesis.1,
+        "num_passes": v.num_passes,
+        "discriminator": {
+            "fastio_fast_frac": v.fastio_fast_frac,
+            "io_fast_frac": v.io_fast_frac,
         },
-        "heuristic_scores": verdict.heuristic_scores,
-        "passes": verdict.passes.iter().enumerate().map(|(i, p)| {
+        "totals": {
+            "fastio": { "total": v.fastio.total, "fast": v.fastio.fast, "nonfast": v.fastio.nonfast },
+            "io": { "total": v.io.total, "fast": v.io.fast, "nonfast": v.io.nonfast },
+            "both": v.both.total,
+            "both_fast": v.both_fast.total,
+            "both_nonfast": v.both_nonfast.total,
+        },
+        "major_functions": v.both.majors.keys().map(|maj| {
             serde_json::json!({
-                "pass": i + 1,
-                "count_io": p.count_a,
-                "count_fastio": p.count_b,
-                "ratio": p.ratio,
-                "matched_pairs": p.matched_pairs,
-                "match_ratio_a": p.match_ratio_a,
-                "match_ratio_b": p.match_ratio_b,
-                "distribution_match": p.distribution_match,
-                "unique_to_io": p.unique_to_a,
-                "unique_to_fastio": p.unique_to_b,
+                "mj": maj,
+                "fastio": v.fastio.majors.get(maj).copied().unwrap_or(0),
+                "io": v.io.majors.get(maj).copied().unwrap_or(0),
+                "both_fast": v.both_fast.majors.get(maj).copied().unwrap_or(0),
+                "both_nonfast": v.both_nonfast.majors.get(maj).copied().unwrap_or(0),
             })
         }).collect::<Vec<_>>(),
+        "scores": v.scores.iter().map(|(h, s)| (h.to_string(), s)).collect::<Vec<_>>(),
+        "best": v.best.to_string(),
     });
 
     let path = "flt_compare_results.json";
