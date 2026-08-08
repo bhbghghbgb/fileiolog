@@ -242,6 +242,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "fileio-flag-discovery"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "etw-macros",
+ "ferrisetw",
+ "fileio-events-macro",
+ "fileiolog",
+ "log",
+ "memmap2",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "widestring",
+ "windows",
+ "winres",
+]
+
+[[package]]
 name = "fileio-trace-test"
 version = "0.1.0"
 dependencies = [
