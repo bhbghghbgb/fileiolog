@@ -271,6 +271,10 @@ impl KernelTraceSession {
         let mut group_mask_data = [0u32; 8];
         group_mask_data.copy_from_slice(&masks);
 
+        // OR in the EnableFlags so they are not zeroed when replacing the groupmask.
+        // Masks[0] corresponds to EnableFlags (the first group).
+        group_mask_data[0] |= self.config.enable_flags.unwrap_or(0);
+
         // TraceSystemTraceEnableFlagsInfo = 4
         const TRACE_SYSTEM_TRACE_ENABLE_FLAGS_INFO: i32 = 4;
 
