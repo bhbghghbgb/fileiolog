@@ -20,22 +20,21 @@ fn main() {
     .init();
     log::info!("Starting up ETW Monitor Application...");
 
-    // 2. Define the unified callback (For now logging; later pushing to ringbuf SPSC)
+    // 2. Define the unified callback
+    //    The callback is wrapped in Arc internally and will be called from
+    //    both the UserTrace and KernelTrace threads in parallel.
     let shared_event_callback = |event: ProviderEvent| {
         log::info!("Received Event: {:?}", event);
     };
 
-    // 3. Build and start the session
-    //    Use .with_kernel_trace() to enable PERFINFO_GROUPMASK support.
-    //    This is required for extended flags (e.g., minifilter events).
+    // 3. Build and start both sessions (UserTrace + KernelTrace)
     let _session = EtwTraceManager::new("FileIoLog")
-        .with_kernel_trace()
         .start(shared_event_callback)
-        .expect("Failed to start ETW trace session");
+        .expect("Failed to start ETW trace sessions");
 
     log::info!("Monitoring logs for 3 seconds...");
     std::thread::sleep(Duration::from_secs(3));
 
     log::info!("Application work period finished. Execution exiting scope...");
-    // _session goes out of scope here; its Drop trait cleans up everything automatically.
+    // _session goes out of scope here; its Drop trait cleans up both sessions.
 }
