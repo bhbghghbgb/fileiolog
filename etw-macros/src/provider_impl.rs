@@ -197,11 +197,14 @@ impl Parse for EtwProviderInput {
                                  blocks (use `enable_flag` for kernel providers)",
                             ));
                         }
-                        if !has_provider_flag && args.enable_flag.is_none() {
+                        if !has_provider_flag
+                            && args.enable_flag.is_none()
+                            && args.group_mask.is_none()
+                        {
                             return Err(Error::new_spanned(
                                 &resolved_name,
-                                "`enable_flag` is required on each event when no provider-wide \
-                                 `enable_flag` is set on `#[etw_provider(...)]`",
+                                "`enable_flag` or `group_mask` is required on each event when \
+                                 no provider-wide `enable_flag` is set on `#[etw_provider(...)]`",
                             ));
                         }
                     }

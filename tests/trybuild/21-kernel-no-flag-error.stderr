@@ -1,4 +1,4 @@
-error: `enable_flag` is required on each event when no provider-wide `enable_flag` is set on `#[etw_provider(...)]`
+error: `enable_flag` or `group_mask` is required on each event when no provider-wide `enable_flag` is set on `#[etw_provider(...)]`
   --> tests/trybuild/21-kernel-no-flag-error.rs:10:20
    |
 10 |         pub struct A {

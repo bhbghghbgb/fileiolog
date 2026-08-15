@@ -351,10 +351,9 @@ etw_provider! {
         // ── FltIoInit V3 ──────────────────────────────────────
         // Class: FltIoInit (EventVersion(3), EventType{96, 97})
         // New in V3: minifilter IO init events
-        // enable_flag uses PERF_FLT_IO_INIT (extended groupmask bit)
-        // group_mask specifies the same bit via TraceSetInformation
-        #[etw_event(name = "PreOpInitV3", id = 96, version = 3, enable_flag = flags::PERF_FLT_IO_INIT, group_mask = flags::PERF_FLT_IO_INIT)]
-        #[etw_event(name = "PostOpInitV3", id = 97, version = 3, enable_flag = flags::PERF_FLT_IO_INIT, group_mask = flags::PERF_FLT_IO_INIT)]
+        // Only accessible via PERFINFO_GROUPMASK (no EnableFlags equivalent)
+        #[etw_event(name = "PreOpInitV3", id = 96, version = 3, group_mask = flags::PERF_FLT_IO_INIT)]
+        #[etw_event(name = "PostOpInitV3", id = 97, version = 3, group_mask = flags::PERF_FLT_IO_INIT)]
         pub struct FltIoInitV3 {
             #[etw_prop(name = "RoutineAddr", parse_as = ferrisetw::parser::Pointer)]
             pub routine_addr: usize,
@@ -373,10 +372,9 @@ etw_provider! {
         // ── FltIoCompletion V3 ────────────────────────────────
         // Class: FltIoCompletion (EventVersion(3), EventType{98, 99})
         // New in V3: minifilter IO completion events with InitialTime
-        // enable_flag uses PERF_FLT_IO (extended groupmask bit)
-        // group_mask specifies the same bit via TraceSetInformation
-        #[etw_event(name = "PreOpCompletionV3", id = 98, version = 3, enable_flag = flags::PERF_FLT_IO, group_mask = flags::PERF_FLT_IO)]
-        #[etw_event(name = "PostOpCompletionV3", id = 99, version = 3, enable_flag = flags::PERF_FLT_IO, group_mask = flags::PERF_FLT_IO)]
+        // Only accessible via PERFINFO_GROUPMASK (no EnableFlags equivalent)
+        #[etw_event(name = "PreOpCompletionV3", id = 98, version = 3, group_mask = flags::PERF_FLT_IO)]
+        #[etw_event(name = "PostOpCompletionV3", id = 99, version = 3, group_mask = flags::PERF_FLT_IO)]
         pub struct FltIoCompletionV3 {
             #[etw_prop(name = "InitialTime")]
             pub initial_time: u64,
@@ -397,10 +395,9 @@ etw_provider! {
         // ── FltIoFailure V3 ───────────────────────────────────
         // Class: FltIoFailure (EventVersion(3), EventType{100, 101})
         // New in V3: minifilter IO failure events with Status
-        // enable_flag uses PERF_FLT_IO_FAILURE (extended groupmask bit)
-        // group_mask specifies the same bit via TraceSetInformation
-        #[etw_event(name = "PreOpFailureV3", id = 100, version = 3, enable_flag = flags::PERF_FLT_IO_FAILURE, group_mask = flags::PERF_FLT_IO_FAILURE)]
-        #[etw_event(name = "PostOpFailureV3", id = 101, version = 3, enable_flag = flags::PERF_FLT_IO_FAILURE, group_mask = flags::PERF_FLT_IO_FAILURE)]
+        // Only accessible via PERFINFO_GROUPMASK (no EnableFlags equivalent)
+        #[etw_event(name = "PreOpFailureV3", id = 100, version = 3, group_mask = flags::PERF_FLT_IO_FAILURE)]
+        #[etw_event(name = "PostOpFailureV3", id = 101, version = 3, group_mask = flags::PERF_FLT_IO_FAILURE)]
         pub struct FltIoFailureV3 {
             #[etw_prop(name = "RoutineAddr", parse_as = ferrisetw::parser::Pointer)]
             pub routine_addr: usize,
