@@ -16,6 +16,33 @@ pub mod flags {
     pub const PERF_FLT_IO_FAILURE: u32 = 0x80400000;
 }
 
+/// Build a kernel provider with 0 flags, for use with TraceSetInformation.
+///
+/// When the caller needs to set extended flags via PERFINFO_GROUPMASK,
+/// the provider must be created with 0 flags and the actual flags are
+/// applied through TraceSetInformation after the trace is opened.
+pub fn build_provider_zero_flags<F>(callback: F) -> ::ferrisetw::provider::Provider
+where
+    F: Fn(KernelTraceFileIoEvent) + Send + Sync + 'static,
+{
+    use ::ferrisetw::provider::*;
+    use ::ferrisetw::schema_locator::SchemaLocator;
+    use ::ferrisetw::EventRecord;
+
+    Provider::kernel(&kernel_providers::KernelProvider::new(
+        PROVIDER_GUID,
+        0, // No flags — set via TraceSetInformation instead
+    ))
+    .add_callback(
+        move |record: &EventRecord, locator: &SchemaLocator| {
+            if let Some(event) = KernelTraceFileIoEvent::try_parse(record, locator) {
+                callback(event);
+            }
+        },
+    )
+    .build()
+}
+
 etw_provider! {
     #[etw_provider(
         kind = "kernel",
