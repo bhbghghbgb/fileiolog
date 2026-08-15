@@ -11,6 +11,8 @@ use crate::rundown::request_rundown;
 /// Consumed by `start()` which returns a `EtwTraceSession`.
 pub struct EtwTraceManager {
     session_name: String,
+    /// If true, use KernelTrace with group mask support.
+    use_kernel_trace: bool,
 }
 
 impl EtwTraceManager {
@@ -25,21 +27,51 @@ impl EtwTraceManager {
                 "Found and terminated a stale trace session: '{session_name}'. Error: {e:?}"
             ),
         }
-        Self { session_name }
+        Self {
+            session_name,
+            use_kernel_trace: false,
+        }
+    }
+
+    /// Enable kernel trace mode with PERFINFO_GROUPMASK support.
+    ///
+    /// When enabled, the trace will use `KernelTrace` instead of `UserTrace`,
+    /// allowing extended flags to be set via `TraceSetInformation`.
+    ///
+    /// This is required for kernel sessions that need extended event types
+    /// not covered by the standard EnableFlags (e.g., minifilter events).
+    pub fn with_kernel_trace(mut self) -> Self {
+        self.use_kernel_trace = true;
+        self
     }
 
     /// Starts the ETW trace. Accepts a single unified callback processing `ProviderEvent`.
     ///
     /// Always requests rundown (DCStart/DCEnd) for every enabled provider after
     /// the session starts but before `ProcessTrace` begins processing events.
+    ///
+    /// When `with_kernel_trace()` was called, uses `KernelTrace` with group mask support.
+    /// Otherwise, uses `UserTrace`.
     pub fn start<F>(self, shared_callback: F) -> Result<EtwTraceSession, TraceError>
     where
         F: Fn(ProviderEvent) + Send + Sync + Clone + 'static,
     {
         log::info!("Creating new ETW session: '{}'...", self.session_name);
 
+        if self.use_kernel_trace {
+            self.start_kernel(shared_callback)
+        } else {
+            self.start_user(shared_callback)
+        }
+    }
+
+    /// Start a UserTrace session (default mode).
+    fn start_user<F>(self, shared_callback: F) -> Result<EtwTraceSession, TraceError>
+    where
+        F: Fn(ProviderEvent) + Send + Sync + Clone + 'static,
+    {
         // Build the provider list and collect their GUIDs for the rundown request.
-        let (builder, provider_guids) = self.register_providers(shared_callback);
+        let (builder, provider_guids) = self.register_user_providers(shared_callback);
 
         // Step 1: StartTraceW → EnableTraceEx2(ENABLE) for each provider → OpenTraceW.
         let (trace, trace_handle) = builder.named(self.session_name.clone()).start()?;
@@ -49,7 +81,6 @@ impl EtwTraceManager {
         let query_handle = request_rundown(&self.session_name, &provider_guids).map_err(|e| {
             TraceError::EtwNativeError(ferrisetw::native::EvntraceNativeError::IoError(e))
         })?;
-        // let query_handle = CONTROLTRACE_HANDLE { Value: 0 };
 
         // Step 3: (debug only) verify the ControlTraceW-obtained handle matches
         // the private control_handle we can only see through Debug formatting.
@@ -65,15 +96,76 @@ impl EtwTraceManager {
         log::info!("{:?}", trace);
         Ok(EtwTraceSession {
             session_name: self.session_name,
-            trace: Some(trace),
+            inner: EtwTraceSessionInner::User {
+                trace: Some(trace),
+            },
             control_handle: Some(query_handle),
         })
     }
 
-    /// Central place to enable all desired providers.
+    /// Start a KernelTrace session with group mask support.
+    ///
+    /// This uses the `kernel_trace_fileio` provider which supports extended flags
+    /// via PERFINFO_GROUPMASK. The group mask is applied via `TraceSetInformation`
+    /// after the trace is started but before `ProcessTrace` begins.
+    fn start_kernel<F>(self, shared_callback: F) -> Result<EtwTraceSession, TraceError>
+    where
+        F: Fn(ProviderEvent) + Send + Sync + Clone + 'static,
+    {
+        let file_cb = shared_callback.clone();
+        let file_provider = providers::kernel_trace_fileio::build_provider(move |evt| {
+            file_cb(ProviderEvent::KernelFileIo(evt));
+        });
+
+        // Build the kernel trace
+        let builder = ferrisetw::trace::KernelTrace::new()
+            .named(self.session_name.clone())
+            .enable(file_provider)
+            .stop_if_exist(true);
+
+        // Step 1: Start the trace
+        let (trace, trace_handle) = builder.start()?;
+
+        // Step 2: Query the control handle
+        let provider_guids = vec![providers::kernel_trace_fileio::PROVIDER_GUID];
+        let query_handle = request_rundown(&self.session_name, &provider_guids).map_err(|e| {
+            TraceError::EtwNativeError(ferrisetw::native::EvntraceNativeError::IoError(e))
+        })?;
+
+        // Step 3: Apply the group mask via TraceSetInformation
+        // This must happen after the trace is started but before ProcessTrace begins.
+        providers::kernel_trace_fileio::apply_group_mask(query_handle).map_err(|e| {
+            TraceError::EtwNativeError(ferrisetw::native::EvntraceNativeError::IoError(e))
+        })?;
+
+        log::info!(
+            "Applied PERFINFO_GROUPMASK to session '{}': {:?}",
+            self.session_name,
+            providers::kernel_trace_fileio::GROUP_MASK
+        );
+
+        // Step 4: Spawn the blocking ProcessTrace on a background thread.
+        std::thread::spawn(move || {
+            let _ = <ferrisetw::trace::KernelTrace as TraceTrait>::process_from_handle(trace_handle);
+        });
+
+        log::info!("ETW Kernel Trace session '{}' is now active.", self.session_name);
+        log::info!("{:?}", trace);
+        Ok(EtwTraceSession {
+            session_name: self.session_name,
+            inner: EtwTraceSessionInner::Kernel {
+                trace: Some(trace),
+            },
+            control_handle: Some(query_handle),
+        })
+    }
+
+    /// Central place to enable all desired user-mode providers.
     /// Returns the builder plus the list of provider GUIDs (needed for rundown).
-    /// Add new providers here with additional `.enable(...)` calls.
-    fn register_providers<F>(&self, shared_callback: F) -> (TraceBuilder<UserTrace>, Vec<GUID>)
+    fn register_user_providers<F>(
+        &self,
+        shared_callback: F,
+    ) -> (TraceBuilder<UserTrace>, Vec<GUID>)
     where
         F: Fn(ProviderEvent) + Send + Sync + Clone + 'static,
     {
@@ -107,11 +199,20 @@ impl EtwTraceManager {
 /// A running ETW trace session. Call `stop()` or let `Drop` handle cleanup.
 pub struct EtwTraceSession {
     session_name: String,
-    trace: Option<UserTrace>,
+    inner: EtwTraceSessionInner,
     /// The session's control handle (from `ControlTraceW(QUERY)`).
     /// Used for requesting rundown and future control operations.
     #[allow(dead_code)]
     control_handle: Option<CONTROLTRACE_HANDLE>,
+}
+
+enum EtwTraceSessionInner {
+    User {
+        trace: Option<UserTrace>,
+    },
+    Kernel {
+        trace: Option<ferrisetw::trace::KernelTrace>,
+    },
 }
 
 impl EtwTraceSession {
@@ -127,10 +228,22 @@ impl EtwTraceSession {
 
         let mut result = Ok(());
 
-        if let Some(trace) = self.trace.take() {
-            if let Err(e) = trace.stop() {
-                log::error!("trace.stop() failed: {:?}", e);
-                result = Err(e);
+        match &mut self.inner {
+            EtwTraceSessionInner::User { trace } => {
+                if let Some(trace) = trace.take() {
+                    if let Err(e) = trace.stop() {
+                        log::error!("trace.stop() failed: {:?}", e);
+                        result = Err(e);
+                    }
+                }
+            }
+            EtwTraceSessionInner::Kernel { trace } => {
+                if let Some(trace) = trace.take() {
+                    if let Err(e) = trace.stop() {
+                        log::error!("trace.stop() failed: {:?}", e);
+                        result = Err(e);
+                    }
+                }
             }
         }
 

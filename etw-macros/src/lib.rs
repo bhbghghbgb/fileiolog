@@ -52,6 +52,9 @@ pub(crate) struct EtwEventArgs {
     pub(crate) name: Option<String>,
     pub(crate) keyword_mask: Option<syn::Expr>,
     pub(crate) enable_flag: Option<syn::Expr>,
+    /// PERFINFO_GROUPMASK bit for this event (placed in the correct group by high 3 bits).
+    /// Only valid for kernel providers. Specified in addition to enable_flag.
+    pub(crate) group_mask: Option<syn::Expr>,
     #[darling(default)]
     pub(crate) skip: bool,
 }
@@ -72,6 +75,10 @@ pub(crate) struct EtwProviderArgs {
     pub(crate) kind: EtwProviderKind,
     pub(crate) keyword_mask: Option<syn::Expr>,
     pub(crate) enable_flag: Option<syn::Expr>,
+    /// Provider-wide PERFINFO_GROUPMASK bit (placed in the correct group by high 3 bits).
+    /// Only valid for kernel providers. Specified in addition to enable_flag.
+    /// This mask is OR'd with any per-event group_mask values.
+    pub(crate) group_mask: Option<syn::Expr>,
 }
 
 /// Minimal struct for checking `skip` without requiring `name`.

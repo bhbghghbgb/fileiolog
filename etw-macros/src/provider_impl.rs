@@ -29,6 +29,7 @@ struct EtwProviderInput {
     kind: EtwProviderKind,
     provider_keyword_mask: Option<syn::Expr>,
     provider_enable_flag: Option<syn::Expr>,
+    provider_group_mask: Option<syn::Expr>,
     enum_vis: Visibility,
     enum_name: Ident,
     variants: Vec<EtwVariant>,
@@ -39,6 +40,7 @@ struct EtwVariant {
     event_version: Option<u8>,
     keyword_mask: Option<syn::Expr>,
     enable_flag: Option<syn::Expr>,
+    group_mask: Option<syn::Expr>,
     skip: bool,
     attrs: Vec<Attribute>,
     struct_vis: Visibility,
@@ -56,6 +58,7 @@ impl Parse for EtwProviderInput {
         let mut kind = EtwProviderKind::User;
         let mut provider_keyword_mask: Option<syn::Expr> = None;
         let mut provider_enable_flag: Option<syn::Expr> = None;
+        let mut provider_group_mask: Option<syn::Expr> = None;
 
         for attr in &outer_attrs {
             if attr.path().is_ident("etw_provider") {
@@ -65,6 +68,7 @@ impl Parse for EtwProviderInput {
                 kind = args.kind;
                 provider_keyword_mask = args.keyword_mask;
                 provider_enable_flag = args.enable_flag;
+                provider_group_mask = args.group_mask;
 
                 match kind {
                     EtwProviderKind::User => {
@@ -72,6 +76,12 @@ impl Parse for EtwProviderInput {
                             return Err(Error::new_spanned(
                                 attr,
                                 "`enable_flag` on `#[etw_provider(...)]` is only valid for kernel providers (use `keyword_mask` for user providers)",
+                            ));
+                        }
+                        if provider_group_mask.is_some() {
+                            return Err(Error::new_spanned(
+                                attr,
+                                "`group_mask` on `#[etw_provider(...)]` is only valid for kernel providers",
                             ));
                         }
                     }
@@ -171,6 +181,13 @@ impl Parse for EtwProviderInput {
                                  blocks (use `keyword_mask` for user providers)",
                             ));
                         }
+                        if args.group_mask.is_some() {
+                            return Err(Error::new_spanned(
+                                &resolved_name,
+                                "`group_mask` is only valid on events in kernel `etw_provider!` \
+                                 blocks",
+                            ));
+                        }
                     }
                     EtwProviderKind::Kernel => {
                         if args.keyword_mask.is_some() {
@@ -195,6 +212,7 @@ impl Parse for EtwProviderInput {
                     event_version: args.version,
                     keyword_mask: args.keyword_mask,
                     enable_flag: args.enable_flag,
+                    group_mask: args.group_mask,
                     skip: args.skip,
                     attrs: other_attrs.clone(),
                     struct_vis: struct_vis.clone(),
@@ -215,6 +233,7 @@ impl Parse for EtwProviderInput {
             kind,
             provider_keyword_mask,
             provider_enable_flag,
+            provider_group_mask,
             enum_vis,
             enum_name,
             variants,
@@ -414,6 +433,218 @@ impl EtwProviderInput {
                             .fold(quote! { 0u32 }, |acc, expr| quote! { #acc | #expr })
                     };
 
+                    // Collect all group masks from provider-level and event-level attributes.
+                    // Each mask value has the group index encoded in the high 3 bits.
+                    let mut group_mask_exprs: Vec<&syn::Expr> = Vec::new();
+                    if let Some(ref gm) = self.provider_group_mask {
+                        group_mask_exprs.push(gm);
+                    }
+                    group_mask_exprs.extend(non_skipped.iter().filter_map(|v| v.group_mask.as_ref()));
+
+                    let has_group_mask = !group_mask_exprs.is_empty();
+
+                    // Build the combined [u32; 8] group mask at compile time.
+                    // Since we don't know the runtime values at proc-macro time,
+                    // we generate code that OR's all masks at runtime.
+                    let group_mask_init = if group_mask_exprs.is_empty() {
+                        quote! { [0u32; 8] }
+                    } else {
+                        // Generate individual assignments for each mask value.
+                        // Each assignment targets masks[group_index] |= value.
+                        // This avoids `for` loops which aren't allowed in `const`.
+                        let assignments: Vec<_> = group_mask_exprs.iter().map(|expr| {
+                            quote! {
+                                {
+                                    let val = #expr;
+                                    let group_index = ((val >> 29) & 0x07) as usize;
+                                    masks[group_index] |= val;
+                                }
+                            }
+                        }).collect();
+
+                        quote! {
+                            {
+                                let mut masks = [0u32; 8];
+                                #(#assignments)*
+                                // OR in the enable_flags into Masks[0] so they are not
+                                // zeroed when replacing the groupmask.
+                                masks[0] |= #combined_flags;
+                                masks
+                            }
+                        }
+                    };
+
+                    let extended_flags_section = if has_group_mask {
+                        quote! {
+                            /// Combined PERFINFO_GROUPMASK for this provider.
+                            /// Each group mask value has the group index in the high 3 bits.
+                            /// Masks[0] includes the enable_flags OR'd in.
+                            pub const GROUP_MASK: [u32; 8] = #group_mask_init;
+
+                            /// Combined enable flags (without group mask extensions).
+                            pub const ENABLE_FLAGS: u32 = #combined_flags;
+
+                            /// Apply the PERFINFO_GROUPMASK to an already-started kernel trace.
+                            ///
+                            /// Must be called after `KernelTrace::start()` but before
+                            /// `ProcessTrace` begins processing events. This calls
+                            /// `TraceSetInformation` with `TraceSystemTraceEnableFlagsInfo`.
+                            ///
+                            /// # Arguments
+                            /// * `control_handle` - The trace's control handle, obtainable
+                            ///   from `ControlTraceW(EVENT_TRACE_CONTROL_QUERY)` or from
+                            ///   the `EtwTraceSession` returned by the manager.
+                            pub fn apply_group_mask(
+                                control_handle: ::windows::Win32::System::Diagnostics::Etw::CONTROLTRACE_HANDLE,
+                            ) -> Result<(), ::std::io::Error> {
+                                let masks = GROUP_MASK;
+
+                                // TraceSystemTraceEnableFlagsInfo = 4
+                                const TRACE_SYSTEM_TRACE_ENABLE_FLAGS_INFO: i32 = 4;
+
+                                let result = unsafe {
+                                    ::windows::Win32::System::Diagnostics::Etw::TraceSetInformation(
+                                        control_handle,
+                                        ::std::mem::transmute(TRACE_SYSTEM_TRACE_ENABLE_FLAGS_INFO),
+                                        masks.as_ptr() as *const ::std::ffi::c_void,
+                                        ::std::mem::size_of::<[u32; 8]>() as u32,
+                                    )
+                                };
+
+                                result.ok().map_err(|e| {
+                                    ::std::io::Error::from_raw_os_error(e.code().0)
+                                })
+                            }
+
+                            /// Build a `KernelTrace` for this provider.
+                            ///
+                            /// Returns a `TraceBuilder` that can be customized and then
+                            /// started with `.start()`. After starting, you must call
+                            /// `apply_group_mask()` before `ProcessTrace` begins.
+                            pub fn build_kernel_trace(
+                                session_name: &str,
+                            ) -> ::ferrisetw::trace::TraceBuilder<::ferrisetw::trace::KernelTrace> {
+                                let provider = build_provider(|_| {});
+                                ::ferrisetw::trace::KernelTrace::new()
+                                    .named(session_name.to_string())
+                                    .enable(provider)
+                                    .stop_if_exist(true)
+                            }
+
+                            /// Convenience: start a kernel trace, apply group mask, and
+                            /// begin processing events.
+                            ///
+                            /// This builds the provider, starts the trace, applies the
+                            /// PERFINFO_GROUPMASK via `TraceSetInformation`, and spawns
+                            /// a background thread to process events.
+                            ///
+                            /// Returns the `KernelTrace` (which controls the session
+                            /// lifetime via `Drop`) and the `TraceHandle` for the
+                            /// processing thread.
+                            pub fn start_kernel_trace<F>(
+                                session_name: &str,
+                                callback: F,
+                            ) -> Result<
+                                (::ferrisetw::trace::KernelTrace, ::ferrisetw::native::TraceHandle),
+                                ::ferrisetw::trace::TraceError,
+                            >
+                            where
+                                F: Fn(#enum_name) + Send + Sync + 'static,
+                            {
+                                let provider = build_provider(callback);
+                                let (trace, trace_handle) = ::ferrisetw::trace::KernelTrace::new()
+                                    .named(session_name.to_string())
+                                    .enable(provider)
+                                    .stop_if_exist(true)
+                                    .start()?;
+
+                                // Query the control handle via ControlTraceW(QUERY)
+                                let control_handle = query_control_handle(session_name)
+                                    .map_err(|e| ::ferrisetw::trace::TraceError::EtwNativeError(
+                                        ::ferrisetw::native::EvntraceNativeError::IoError(e),
+                                    ))?;
+
+                                // Apply the group mask after starting but before processing
+                                apply_group_mask(control_handle)
+                                    .map_err(|e| ::ferrisetw::trace::TraceError::EtwNativeError(
+                                        ::ferrisetw::native::EvntraceNativeError::IoError(e),
+                                    ))?;
+
+                                Ok((trace, trace_handle))
+                            }
+
+                            /// Query the control handle for a running trace session.
+                            ///
+                            /// This calls `ControlTraceW(EVENT_TRACE_CONTROL_QUERY)` to
+                            /// retrieve the session's control handle, which is needed for
+                            /// `apply_group_mask()` and other trace control operations.
+                            fn query_control_handle(
+                                session_name: &str,
+                            ) -> Result<
+                                ::windows::Win32::System::Diagnostics::Etw::CONTROLTRACE_HANDLE,
+                                ::std::io::Error,
+                            > {
+                                use ::std::ptr;
+                                use ::windows::Win32::System::Diagnostics::Etw::{
+                                    self, CONTROLTRACE_HANDLE, EVENT_TRACE_CONTROL_QUERY,
+                                    EVENT_TRACE_PROPERTIES, WNODE_FLAG_TRACED_GUID,
+                                };
+                                use ::windows::core::PCWSTR;
+
+                                const NAME_MAX: usize = 200;
+
+                                let name_wide: Vec<u16> = session_name.encode_utf16().collect();
+                                let name_len = name_wide.len().min(NAME_MAX);
+
+                                let header_size = ::std::mem::size_of::<EVENT_TRACE_PROPERTIES>();
+                                let name_buf_size = (NAME_MAX + 1) * 2;
+                                let total_size = header_size + name_buf_size;
+
+                                let mut buffer = vec![0u8; total_size];
+
+                                let props = unsafe {
+                                    &mut *(buffer.as_mut_ptr() as *mut EVENT_TRACE_PROPERTIES)
+                                };
+
+                                props.Wnode.BufferSize = total_size as u32;
+                                props.Wnode.Flags = WNODE_FLAG_TRACED_GUID;
+                                props.Wnode.Guid = ::windows::core::GUID::zeroed();
+                                props.LoggerNameOffset = header_size as u32;
+                                props.LogFileNameOffset = 0;
+
+                                let name_ptr = unsafe {
+                                    buffer.as_mut_ptr().add(header_size) as *mut u16
+                                };
+                                unsafe {
+                                    ptr::copy_nonoverlapping(name_wide.as_ptr(), name_ptr, name_len);
+                                    ptr::write(name_ptr.add(name_len), 0);
+                                }
+
+                                let result = unsafe {
+                                    Etw::ControlTraceW(
+                                        CONTROLTRACE_HANDLE { Value: 0 },
+                                        PCWSTR::from_raw(name_ptr as *const u16),
+                                        props as *mut EVENT_TRACE_PROPERTIES,
+                                        EVENT_TRACE_CONTROL_QUERY,
+                                    )
+                                };
+
+                                result.ok().map_err(|e| {
+                                    ::std::io::Error::from_raw_os_error(e.code().0)
+                                })?;
+
+                                let handle_value =
+                                    unsafe { props.Wnode.Anonymous1.HistoricalContext };
+
+                                Ok(CONTROLTRACE_HANDLE {
+                                    Value: handle_value,
+                                })
+                            }
+                        }
+                    } else {
+                        quote! {}
+                    };
+
                     quote! {
                         pub fn build_provider<F>(callback: F) -> ::ferrisetw::provider::Provider
                         where
@@ -432,6 +663,8 @@ impl EtwProviderInput {
                             })
                             .build()
                         }
+
+                        #extended_flags_section
                     }
                 }
             }
