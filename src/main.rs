@@ -1,13 +1,12 @@
 mod etw;
 mod manager;
-mod perfinfo_groupmask;
 mod provider_event;
 mod providers;
 mod rundown;
 
 use std::time::Duration;
 
-use crate::{manager::EtwTraceManager, perfinfo_groupmask::*, provider_event::ProviderEvent};
+use crate::{manager::EtwTraceManager, provider_event::ProviderEvent};
 
 fn main() {
     // 1. Initialize env_logger
@@ -27,20 +26,7 @@ fn main() {
     };
 
     // 3. Build and start the session
-    //
-    // Example A: User trace (default — no extended flags needed)
-    // let _session = EtwTraceManager::new("FileIoLog")
-    //     .start(shared_event_callback)
-    //     .expect("Failed to start ETW trace session");
-
-    // Example B: Kernel trace with PERFINFO_GROUPMASK for minifilter events.
-    // The group_mask! macro builds a [u32; 8] array from flag constants.
-    // Only the group containing the flags is populated — no boilerplate for all 8 groups.
-    let mask = group_mask![PERF_FLT_IO_INIT, PERF_FLT_IO, PERF_FLT_IO_FAILURE];
-
     let _session = EtwTraceManager::new("FileIoLog")
-        .with_group_mask(mask)
-        .with_enable_flags(PERF_FILE_IO_INIT | PERF_FILE_IO | PERF_DISK_FILE_IO)
         .start(shared_event_callback)
         .expect("Failed to start ETW trace session");
 

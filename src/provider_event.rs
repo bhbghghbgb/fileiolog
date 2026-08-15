@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use crate::providers::kernel_trace_fileio::KernelTraceFileIoEvent;
 use crate::providers::user_trace_kernel_file::UserTraceKernelFileEvent;
 use crate::providers::user_trace_kernel_process::UserTraceKernelProcessEvent;
 
@@ -8,5 +7,4 @@ use crate::providers::user_trace_kernel_process::UserTraceKernelProcessEvent;
 pub enum ProviderEvent {
     KernelFile(UserTraceKernelFileEvent),
     KernelProcess(UserTraceKernelProcessEvent),
-    KernelTraceFile(KernelTraceFileIoEvent),
 }
