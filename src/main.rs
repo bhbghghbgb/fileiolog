@@ -25,11 +25,8 @@ fn main() {
         log::info!("Received Event: {:?}", event);
     };
 
-    // 3. Build and start the session
-    //    Use .with_kernel_trace() to enable PERFINFO_GROUPMASK support.
-    //    This is required for extended flags (e.g., minifilter events).
+    // 3. Build and start both sessions (user + kernel) simultaneously.
     let _session = EtwTraceManager::new("FileIoLog")
-        .with_kernel_trace()
         .start(shared_event_callback)
         .expect("Failed to start ETW trace session");
 
