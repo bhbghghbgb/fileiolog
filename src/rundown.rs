@@ -11,27 +11,10 @@ use windows::core::{GUID, PCWSTR};
 const NAME_MAX: usize = 200;
 
 /// Call `ControlTraceW(EVENT_TRACE_CONTROL_QUERY)` to retrieve the session's
-/// control handle, then call `EnableTraceEx2(EVENT_CONTROL_CODE_CAPTURE_STATE)`
-/// for every provider GUID in `provider_guids`.
-///
-/// Returns the control handle on success.
-pub fn request_rundown(
+/// control handle from `Wnode.HistoricalContext`.
+pub fn query_control_handle(
     session_name: &str,
-    provider_guids: &[GUID],
 ) -> Result<CONTROLTRACE_HANDLE, std::io::Error> {
-    let handle = query_control_handle(session_name)?;
-
-    for &guid in provider_guids {
-        trigger_capture_state(handle, guid)?;
-    }
-
-    Ok(handle)
-}
-
-// ---------------------------------------------------------------------------
-//  ControlTraceW(QUERY) — extract the session handle from Wnode.HistoricalContext
-// ---------------------------------------------------------------------------
-fn query_control_handle(session_name: &str) -> Result<CONTROLTRACE_HANDLE, std::io::Error> {
     let name_wide: Vec<u16> = session_name.encode_utf16().collect();
     let name_len = name_wide.len().min(NAME_MAX);
 
@@ -74,6 +57,18 @@ fn query_control_handle(session_name: &str) -> Result<CONTROLTRACE_HANDLE, std::
     Ok(CONTROLTRACE_HANDLE {
         Value: handle_value,
     })
+}
+
+/// Request rundown (DCStart/DCEnd) by calling `EnableTraceEx2(CAPTURE_STATE)`
+/// for every provider GUID in `provider_guids` on the given control handle.
+pub fn request_rundown(
+    handle: CONTROLTRACE_HANDLE,
+    provider_guids: &[GUID],
+) -> Result<(), std::io::Error> {
+    for &guid in provider_guids {
+        trigger_capture_state(handle, guid)?;
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

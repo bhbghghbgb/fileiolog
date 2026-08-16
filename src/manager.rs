@@ -7,7 +7,7 @@ use windows::core::GUID;
 
 use crate::provider_event::ProviderEvent;
 use crate::providers;
-use crate::rundown::request_rundown;
+use crate::rundown::{query_control_handle, request_rundown};
 
 // ---------------------------------------------------------------------------
 //  Builder
@@ -206,7 +206,11 @@ where
 
     let (trace, trace_handle) = builder.named(session_name.to_string()).start()?;
 
-    let query_handle = request_rundown(session_name, &provider_guids).map_err(|e| {
+    let query_handle = query_control_handle(session_name).map_err(|e| {
+        TraceError::EtwNativeError(ferrisetw::native::EvntraceNativeError::IoError(e))
+    })?;
+
+    request_rundown(query_handle, &provider_guids).map_err(|e| {
         TraceError::EtwNativeError(ferrisetw::native::EvntraceNativeError::IoError(e))
     })?;
 
@@ -248,8 +252,7 @@ where
 
     let (trace, trace_handle) = builder.start()?;
 
-    let provider_guids = vec![providers::kernel_trace_fileio::PROVIDER_GUID];
-    let query_handle = request_rundown(session_name, &provider_guids).map_err(|e| {
+    let query_handle = query_control_handle(session_name).map_err(|e| {
         TraceError::EtwNativeError(ferrisetw::native::EvntraceNativeError::IoError(e))
     })?;
 
