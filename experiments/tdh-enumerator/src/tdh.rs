@@ -2,22 +2,26 @@ use std::alloc::Layout;
 
 use ferrisetw::EventRecord;
 use windows::Win32::Foundation::ERROR_INSUFFICIENT_BUFFER;
-use windows::Win32::System::Diagnostics::Etw::{
-    self, TRACE_EVENT_INFO,
-};
+use windows::Win32::System::Diagnostics::Etw::{self, TRACE_EVENT_INFO};
 
-use crate::types::{EventInfo, PropertyInfo, PropertyCountInfo, PropertyLengthInfo, PropertyValue};
+use crate::types::{
+    EventObservation, EventTypeId, EventTypeInfo, PropertyCountInfo, PropertyInfo,
+    PropertyLengthInfo,
+};
 
 /// Transmute a ferrisetw EventRecord reference to a raw EVENT_RECORD pointer.
 ///
 /// # Safety
 ///
 /// This relies on EventRecord being #[repr(transparent)] over EVENT_RECORD.
-/// This is technically UB but works in practice with the current ferrisetw version.
 #[inline(always)]
-unsafe fn as_raw_event_record(record: &EventRecord) -> &windows::Win32::System::Diagnostics::Etw::EVENT_RECORD {
-    // SAFETY: EventRecord is #[repr(transparent)] over EVENT_RECORD
-    unsafe { &*(record as *const EventRecord as *const windows::Win32::System::Diagnostics::Etw::EVENT_RECORD) }
+unsafe fn as_raw_event_record(
+    record: &EventRecord,
+) -> &windows::Win32::System::Diagnostics::Etw::EVENT_RECORD {
+    unsafe {
+        &*(record as *const EventRecord
+            as *const windows::Win32::System::Diagnostics::Etw::EVENT_RECORD)
+    }
 }
 
 /// Get the user data buffer from an EVENT_RECORD
@@ -33,6 +37,40 @@ unsafe fn get_user_data(record: &EventRecord) -> &[u8] {
         }
     }
 }
+
+/// Build an EventTypeId from an EventRecord (lightweight, no TDH calls).
+pub fn build_type_id(record: &EventRecord) -> EventTypeId {
+    EventTypeId {
+        provider_guid: record.provider_id(),
+        event_id: record.event_id(),
+        version: record.version(),
+        opcode: record.opcode(),
+    }
+}
+
+/// Build a lightweight EventObservation from an EventRecord (no TDH calls).
+pub fn build_observation(record: &EventRecord, type_key: &str) -> EventObservation {
+    let user_data = unsafe { get_user_data(record) };
+
+    // Limit hex to 256 bytes for readability
+    let hex_limit = user_data.len().min(256);
+    let mut user_data_hex = String::with_capacity(hex_limit * 2);
+    for &b in &user_data[..hex_limit] {
+        use std::fmt::Write;
+        let _ = write!(user_data_hex, "{:02x}", b);
+    }
+
+    EventObservation {
+        type_key: type_key.to_string(),
+        process_id: record.process_id(),
+        thread_id: record.thread_id(),
+        timestamp: record.raw_timestamp(),
+        user_data_length: user_data.len(),
+        user_data_hex,
+    }
+}
+
+// ── TDH schema extraction (expensive, called once per event type) ────────
 
 /// Raw wrapper over TRACE_EVENT_INFO buffer
 struct TraceEventInfoBuffer {
@@ -53,8 +91,7 @@ impl Drop for TraceEventInfoBuffer {
     fn drop(&mut self) {
         if !self.data.is_null() {
             unsafe {
-                let mut_data = self.data as *mut u8;
-                std::alloc::dealloc(mut_data, self.layout);
+                std::alloc::dealloc(self.data as *mut u8, self.layout);
             }
         }
     }
@@ -65,9 +102,7 @@ fn get_trace_event_info(record: &EventRecord) -> Result<TraceEventInfoBuffer, St
     let raw_ptr = unsafe { as_raw_event_record(record) };
 
     let mut buffer_size: u32 = 0;
-    let status = unsafe {
-        Etw::TdhGetEventInformation(raw_ptr, None, None, &mut buffer_size)
-    };
+    let status = unsafe { Etw::TdhGetEventInformation(raw_ptr, None, None, &mut buffer_size) };
     if status != ERROR_INSUFFICIENT_BUFFER.0 {
         return Err(format!(
             "TdhGetEventInformation (size query) failed: {}",
@@ -107,7 +142,7 @@ fn get_trace_event_info(record: &EventRecord) -> Result<TraceEventInfoBuffer, St
 }
 
 /// Extract a UTF-16 string from a TRACE_EVENT_INFO buffer at a given offset
-fn extract_string(_te_info: &TRACE_EVENT_INFO, data_ptr: *const u8, offset: u32) -> String {
+fn extract_string(data_ptr: *const u8, offset: u32) -> String {
     if offset == 0 {
         return String::new();
     }
@@ -201,21 +236,41 @@ fn out_type_name(out_type: u16) -> String {
 fn format_guid(d1: u32, d2: u16, d3: u16, d4: &[u8; 8]) -> String {
     format!(
         "{{{:08X}-{:04X}-{:04X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}}}",
-        d1, d2, d3,
-        d4[0], d4[1], d4[2], d4[3], d4[4], d4[5], d4[6], d4[7]
+        d1, d2, d3, d4[0], d4[1], d4[2], d4[3], d4[4], d4[5], d4[6], d4[7]
     )
 }
 
-/// Extract complete event information using TDH
-pub fn extract_event_info(record: &EventRecord) -> Result<EventInfo, String> {
+/// Sanitize a GUID into a filesystem-safe string for use as a file key.
+pub fn sanitize_key_static(guid: &windows::core::GUID) -> String {
+    format!(
+        "{:08x}_{:04x}_{:04x}_{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+        guid.data1,
+        guid.data2,
+        guid.data3,
+        guid.data4[0],
+        guid.data4[1],
+        guid.data4[2],
+        guid.data4[3],
+        guid.data4[4],
+        guid.data4[5],
+        guid.data4[6],
+        guid.data4[7],
+    )
+}
+
+/// Extract complete event type information using TDH (expensive).
+///
+/// This calls TdhGetEventInformation and iterates over all properties.
+/// Should only be called once per unique event type.
+pub fn extract_event_type_info(record: &EventRecord) -> Result<EventTypeInfo, String> {
     let te_info_buf = get_trace_event_info(record)?;
     let te_info = te_info_buf.as_raw();
     let data_ptr = te_info_buf.data;
 
     // Extract schema metadata
-    let provider_name = extract_string(te_info, data_ptr, te_info.ProviderNameOffset);
-    let task_name = extract_string(te_info, data_ptr, te_info.TaskNameOffset);
-    let opcode_name = extract_string(te_info, data_ptr, te_info.OpcodeNameOffset);
+    let provider_name = extract_string(data_ptr, te_info.ProviderNameOffset);
+    let task_name = extract_string(data_ptr, te_info.TaskNameOffset);
+    let opcode_name = extract_string(data_ptr, te_info.OpcodeNameOffset);
 
     let decoding_source = match te_info.DecodingSource.0 {
         0 => "XML File".into(),
@@ -228,15 +283,12 @@ pub fn extract_event_info(record: &EventRecord) -> Result<EventInfo, String> {
     // Extract property definitions
     let property_count = te_info.PropertyCount as usize;
     let mut properties = Vec::with_capacity(property_count);
-    let mut property_values = Vec::with_capacity(property_count);
 
     for i in 0..property_count {
-        let prop_ptr = unsafe {
-            te_info.EventPropertyInfoArray.as_ptr().add(i)
-        };
+        let prop_ptr = unsafe { te_info.EventPropertyInfoArray.as_ptr().add(i) };
         let prop = unsafe { &*prop_ptr };
 
-        let name = extract_string(te_info, data_ptr, prop.NameOffset);
+        let name = extract_string(data_ptr, prop.NameOffset);
         let flags = prop.Flags.0 as u32;
 
         // Extract type information from the union
@@ -273,7 +325,7 @@ pub fn extract_event_info(record: &EventRecord) -> Result<EventInfo, String> {
         };
 
         properties.push(PropertyInfo {
-            name: name.clone(),
+            name,
             in_type,
             in_type_name: in_type_name(in_type),
             out_type,
@@ -284,27 +336,11 @@ pub fn extract_event_info(record: &EventRecord) -> Result<EventInfo, String> {
             flags_hex: format!("0x{:08x}", flags),
         });
 
-        // Placeholder for property values
-        property_values.push(PropertyValue {
-            name: name.clone(),
-            in_type_name: in_type_name(in_type),
-            raw_hex: String::new(),
-            display_value: "(schema only)".into(),
-            parse_error: None,
-        });
+        // Intention: in the future, also attempt to parse property values here
+        // using TDH or manual parsing, to provide a "first look" at the event data.
     }
 
-    // Get user data
-    let user_data = unsafe { get_user_data(record) };
-
-    // Build user data hex string (limit to first 256 bytes for readability)
-    let hex_limit = user_data.len().min(256);
-    let user_data_hex: String = user_data[..hex_limit]
-        .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect();
-
-    // Format GUIDs
+    // Format provider GUID
     let raw_guid = record.provider_id();
     let provider_guid = format_guid(
         raw_guid.data1,
@@ -313,32 +349,15 @@ pub fn extract_event_info(record: &EventRecord) -> Result<EventInfo, String> {
         &raw_guid.data4,
     );
 
-    let raw_activity = record.activity_id();
-    let activity_id = format_guid(
-        raw_activity.data1,
-        raw_activity.data2,
-        raw_activity.data3,
-        &raw_activity.data4,
-    );
-
-    Ok(EventInfo {
+    Ok(EventTypeInfo {
         provider_guid,
         event_id: record.event_id(),
         opcode: record.opcode(),
         version: record.version(),
-        level: record.level(),
-        keyword: record.keyword(),
-        process_id: record.process_id(),
-        thread_id: record.thread_id(),
-        timestamp: record.raw_timestamp(),
-        activity_id,
         provider_name,
         task_name,
         opcode_name,
         decoding_source,
         properties,
-        property_values,
-        user_data_hex,
-        user_data_length: user_data.len(),
     })
 }

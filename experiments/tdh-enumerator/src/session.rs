@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ptr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -12,14 +13,91 @@ use windows::Win32::System::Diagnostics::Etw::{
 use windows::core::PCWSTR;
 
 use crate::config::{AppConfig, TraceMode};
-use crate::output::OutputWriter;
+use crate::output::{DiskWriter, WriteCommand};
 use crate::tdh;
+use crate::types::EventTypeId;
 
 /// Run the trace session based on config
 pub fn run_session(config: &AppConfig) -> Result<(), String> {
     match config.mode {
         TraceMode::Kernel => run_kernel_session(config),
         TraceMode::User => run_user_session(config),
+    }
+}
+
+/// Shared callback construction for both kernel and user sessions.
+///
+/// The callback:
+/// 1. Builds a lightweight EventTypeId (no TDH)
+/// 2. Checks the seen_types cache
+/// 3. On first appearance: extracts full schema via TDH, sends schema + observation
+/// 4. On subsequent appearances: sends only observation
+fn build_callback(
+    seen_types: Arc<std::sync::RwLock<HashMap<EventTypeId, u32>>>,
+    disk_writer: Arc<DiskWriter>,
+) -> impl Fn(&EventRecord, &SchemaLocator) + Clone + Send + Sync + 'static {
+    move |record: &EventRecord, _schema_locator: &SchemaLocator| {
+        let type_id = tdh::build_type_id(record);
+
+        // Fast path: check if we've seen this event type before
+        {
+            let seen = seen_types.read().unwrap();
+            if let Some(_count) = seen.get(&type_id) {
+                // Already seen - just emit a lightweight observation (no TDH calls)
+                let key = format!(
+                    "{}_{}_v{}_op{}",
+                    tdh::sanitize_key_static(&type_id.provider_guid),
+                    type_id.event_id,
+                    type_id.version,
+                    type_id.opcode,
+                );
+                let obs = tdh::build_observation(record, &key);
+                disk_writer.send(WriteCommand::Observation(obs));
+                return;
+            }
+        }
+
+        // First appearance - extract full schema (expensive TDH call)
+        match tdh::extract_event_type_info(record) {
+            Ok(type_info) => {
+                let key = format!(
+                    "{}_{}_v{}_op{}",
+                    tdh::sanitize_key_static(&type_id.provider_guid),
+                    type_id.event_id,
+                    type_id.version,
+                    type_id.opcode,
+                );
+
+                // Log first appearance
+                log::info!(
+                    "New event type: {} {} (opcode={}, v{}, id={}) - {} properties",
+                    type_info.provider_name,
+                    type_info.opcode_name,
+                    type_info.opcode,
+                    type_info.version,
+                    type_info.event_id,
+                    type_info.properties.len(),
+                );
+
+                // Mark as seen
+                {
+                    let mut seen = seen_types.write().unwrap();
+                    seen.insert(type_id, 1);
+                }
+
+                // Send schema and observation to disk writer
+                disk_writer.send(WriteCommand::NewType(type_info));
+                let obs = tdh::build_observation(record, &key);
+                disk_writer.send(WriteCommand::Observation(obs));
+            }
+            Err(e) => {
+                log::warn!(
+                    "Failed to extract event info: opcode={}, error={}",
+                    record.opcode(),
+                    e
+                );
+            }
+        }
     }
 }
 
@@ -32,30 +110,19 @@ fn run_kernel_session(config: &AppConfig) -> Result<(), String> {
     let session_name = "TdhEnumeratorKernel";
     let _ = stop_trace_by_name(session_name);
 
-    let output_writer = Arc::new(OutputWriter::new(&config.output_prefix));
-    let output_callback = output_writer.event_callback();
+    // Pre-allocate seen_types with reasonable capacity
+    let seen_types: Arc<std::sync::RwLock<HashMap<EventTypeId, u32>>> =
+        Arc::new(std::sync::RwLock::new(HashMap::with_capacity(256)));
+    let disk_writer = Arc::new(DiskWriter::new(&config.output_prefix));
 
-    // Create kernel provider with specified flags
     let kernel_provider = KernelProvider::new(provider_guid, enable_flags);
 
-    let callback_output = output_callback.clone();
+    let cb = build_callback(seen_types.clone(), disk_writer.clone());
     let provider = Provider::kernel(&kernel_provider)
         .level(config.level)
         .any(0)
         .all(0)
-        .add_callback(move |record: &EventRecord, _schema_locator: &SchemaLocator| {
-            // Extract event info using TDH directly
-            match tdh::extract_event_info(record) {
-                Ok(info) => callback_output(info),
-                Err(e) => {
-                    log::warn!(
-                        "Failed to extract event info: opcode={}, error={}",
-                        record.opcode(),
-                        e
-                    );
-                }
-            }
-        })
+        .add_callback(cb)
         .build();
 
     let (_trace, trace_handle) = KernelTrace::new()
@@ -79,7 +146,11 @@ fn run_kernel_session(config: &AppConfig) -> Result<(), String> {
         let _ = <KernelTrace as TraceTrait>::process_from_handle(proc_handle);
     });
 
-    log::info!("Kernel trace session '{}' active for {} seconds...", session_name, config.duration);
+    log::info!(
+        "Kernel trace session '{}' active for {} seconds...",
+        session_name,
+        config.duration
+    );
     std::thread::sleep(Duration::from_secs(config.duration));
 
     // Stop the session
@@ -88,10 +159,15 @@ fn run_kernel_session(config: &AppConfig) -> Result<(), String> {
     // Wait for processing thread to finish
     let _ = thread.join();
 
-    log::info!("Collected {} events", output_writer.event_count());
+    // Report stats
+    let type_count = seen_types.read().unwrap().len();
+    log::info!("Observed {} distinct event types", type_count);
 
-    // Write output files
-    output_writer.write_files()?;
+    // Shutdown disk writer (writes final summary)
+    Arc::try_unwrap(disk_writer)
+        .ok()
+        .expect("Arc should be unique at shutdown")
+        .shutdown();
 
     Ok(())
 }
@@ -104,26 +180,16 @@ fn run_user_session(config: &AppConfig) -> Result<(), String> {
     let session_name = "TdhEnumeratorUser";
     let _ = stop_trace_by_name(session_name);
 
-    let output_writer = Arc::new(OutputWriter::new(&config.output_prefix));
-    let output_callback = output_writer.event_callback();
+    let seen_types: Arc<std::sync::RwLock<HashMap<EventTypeId, u32>>> =
+        Arc::new(std::sync::RwLock::new(HashMap::with_capacity(256)));
+    let disk_writer = Arc::new(DiskWriter::new(&config.output_prefix));
 
-    let callback_output = output_callback.clone();
+    let cb = build_callback(seen_types.clone(), disk_writer.clone());
     let provider = Provider::by_guid(provider_guid)
         .level(config.level)
         .any(keyword)
         .all(0)
-        .add_callback(move |record: &EventRecord, _schema_locator: &SchemaLocator| {
-            match tdh::extract_event_info(record) {
-                Ok(info) => callback_output(info),
-                Err(e) => {
-                    log::warn!(
-                        "Failed to extract event info: opcode={}, error={}",
-                        record.opcode(),
-                        e
-                    );
-                }
-            }
-        })
+        .add_callback(cb)
         .build();
 
     let (_trace, trace_handle) = UserTrace::new()
@@ -137,25 +203,34 @@ fn run_user_session(config: &AppConfig) -> Result<(), String> {
         let _ = <UserTrace as TraceTrait>::process_from_handle(proc_handle);
     });
 
-    log::info!("User trace session '{}' active for {} seconds...", session_name, config.duration);
+    log::info!(
+        "User trace session '{}' active for {} seconds...",
+        session_name,
+        config.duration
+    );
     std::thread::sleep(Duration::from_secs(config.duration));
 
     // Stop the session
     let _ = stop_trace_by_name(session_name);
-
     let _ = thread.join();
 
-    log::info!("Collected {} events", output_writer.event_count());
+    let type_count = seen_types.read().unwrap().len();
+    log::info!("Observed {} distinct event types", type_count);
 
-    // Write output files
-    output_writer.write_files()?;
+    Arc::try_unwrap(disk_writer)
+        .ok()
+        .expect("Arc should be unique at shutdown")
+        .shutdown();
 
     Ok(())
 }
 
 /// Query control handle by session name
 fn query_control_handle(session_name: &str) -> Result<CONTROLTRACE_HANDLE, String> {
-    let name_wide: Vec<u16> = session_name.encode_utf16().chain(std::iter::once(0)).collect();
+    let name_wide: Vec<u16> = session_name
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect();
     let header_size = std::mem::size_of::<EVENT_TRACE_PROPERTIES>();
     let name_buf_size = (200 + 1) * 2;
     let total_size = header_size + name_buf_size;
@@ -211,7 +286,9 @@ fn set_group_mask(
         )
     };
 
-    result.ok().map_err(|e| format!("TraceSetInformation (GroupMask) failed: {:?}", e))
+    result
+        .ok()
+        .map_err(|e| format!("TraceSetInformation (GroupMask) failed: {:?}", e))
 }
 
 /// Stop kernel session by sending CONTROL_TRACE_STOP
@@ -219,7 +296,10 @@ fn stop_kernel_session(
     session_name: &str,
     control_handle: CONTROLTRACE_HANDLE,
 ) -> Result<(), String> {
-    let name_wide: Vec<u16> = session_name.encode_utf16().chain(std::iter::once(0)).collect();
+    let name_wide: Vec<u16> = session_name
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect();
     let header_size = std::mem::size_of::<EVENT_TRACE_PROPERTIES>();
     let name_buf_size = (200 + 1) * 2;
     let total_size = header_size + name_buf_size;
