@@ -2,10 +2,94 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
-use crate::flags::{self, Flag};
+use crate::discovery::{EventDiscovery, ObservedTrace};
 use crate::event_types::EventTypeInfo;
-use crate::discovery::EventDiscovery;
+use crate::events::{self, max_known_version};
+use crate::flags::{self, Flag};
 use crate::RESULTS_FILE;
+
+// ── Warning structures ────────────────────────────────────────────
+
+#[derive(serde::Serialize, Clone, Debug)]
+#[serde(tag = "kind")]
+enum WarningKind {
+    #[serde(rename = "unknown_opcode")]
+    UnknownOpcode,
+    #[serde(rename = "higher_version")]
+    HigherVersion { max_known: u8 },
+}
+
+#[derive(serde::Serialize, Clone)]
+struct WarningEntry {
+    opcode: u8,
+    version: u8,
+    count: u64,
+    class_name: String,
+    event_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_known_version: Option<u8>,
+    first_combo: Vec<String>,
+    #[serde(flatten)]
+    kind: WarningKind,
+}
+
+fn build_warnings(
+    observed: &ObservedTrace,
+    flags: &[Flag],
+) -> Vec<WarningEntry> {
+    let mut entries: Vec<WarningEntry> = Vec::new();
+
+    for (&(opcode, version), &count) in &observed.pairs {
+        match max_known_version(opcode) {
+            None => {
+                // Unknown opcode entirely
+                let canonical = events::canonical_def(opcode);
+                let first = observed
+                    .first_combo
+                    .get(&(opcode, version))
+                    .map(|c| c.iter().map(|i| flags[*i].name.clone()).collect())
+                    .unwrap_or_default();
+
+                entries.push(WarningEntry {
+                    opcode,
+                    version,
+                    count,
+                    class_name: canonical.map(|d| d.class_name.to_string()).unwrap_or_default(),
+                    event_name: canonical.map(|d| d.event_name.to_string()).unwrap_or_default(),
+                    max_known_version: None,
+                    first_combo: first,
+                    kind: WarningKind::UnknownOpcode,
+                });
+            }
+            Some(max) => {
+                if version > max {
+                    let canonical = events::canonical_def(opcode).unwrap();
+                    let first = observed
+                        .first_combo
+                        .get(&(opcode, version))
+                        .map(|c| c.iter().map(|i| flags[*i].name.clone()).collect())
+                        .unwrap_or_default();
+
+                    entries.push(WarningEntry {
+                        opcode,
+                        version,
+                        count,
+                        class_name: canonical.class_name.to_string(),
+                        event_name: canonical.event_name.to_string(),
+                        max_known_version: Some(max),
+                        first_combo: first,
+                        kind: WarningKind::HigherVersion { max_known: max },
+                    });
+                }
+                // version <= max → not a warning
+            }
+        }
+    }
+
+    // Sort by opcode then version for stable output
+    entries.sort_by(|a, b| a.opcode.cmp(&b.opcode).then(a.version.cmp(&b.version)));
+    entries
+}
 
 // ── JSON schemas ──────────────────────────────────────────────────
 
@@ -58,6 +142,7 @@ struct ComboResult { observed_opcodes: Vec<u8> }
 #[derive(serde::Serialize, Clone)]
 struct CumulativeState {
     discovered: Vec<DiscoveredEntry>,
+    warnings: Vec<WarningEntry>,
     total_event_types: usize,
     discovered_count: usize,
 }
@@ -77,6 +162,7 @@ struct FinalJson {
     flags: Vec<FlagInfo>,
     discovered: Vec<DiscoveredEntry>,
     undiscovered: Vec<UndiscoveredEntry>,
+    warnings: Vec<WarningEntry>,
 }
 
 #[derive(serde::Serialize)]
@@ -92,6 +178,7 @@ pub(crate) fn write_run_file(
     flags: &[Flag], indices: &[usize],
     run_opcodes: &HashSet<u8>,
     discovered: &HashMap<u8, EventDiscovery>, event_types: &[EventTypeInfo],
+    observed: &ObservedTrace,
 ) {
     let path = dir.join(format!("phase_{}_combo_{}_run_{}.json", phase, ci, ri));
     let file = RunFile {
@@ -104,7 +191,7 @@ pub(crate) fn write_run_file(
         run_result: RunResult {
             observed_opcodes: sorted_vec(run_opcodes),
         },
-        cumulative: build_cumulative(flags, discovered, event_types),
+        cumulative: build_cumulative(flags, discovered, event_types, observed),
     };
     write_json(&path, &file);
 }
@@ -114,6 +201,7 @@ pub(crate) fn write_combo_file(
     flags: &[Flag], indices: &[usize], runs_completed: usize,
     combo_opcodes: &HashSet<u8>,
     discovered: &HashMap<u8, EventDiscovery>, event_types: &[EventTypeInfo],
+    observed: &ObservedTrace,
 ) {
     let path = dir.join(format!("phase_{}_combo_{}.json", phase, ci));
     let file = ComboFile {
@@ -126,7 +214,7 @@ pub(crate) fn write_combo_file(
         combo_result: ComboResult {
             observed_opcodes: sorted_vec(combo_opcodes),
         },
-        cumulative: build_cumulative(flags, discovered, event_types),
+        cumulative: build_cumulative(flags, discovered, event_types, observed),
     };
     write_json(&path, &file);
 }
@@ -135,12 +223,13 @@ pub(crate) fn write_phase_file(
     dir: &Path, phase: usize, combos_completed: usize,
     flags: &[Flag],
     discovered: &HashMap<u8, EventDiscovery>, event_types: &[EventTypeInfo],
+    observed: &ObservedTrace,
 ) {
     let path = dir.join(format!("phase_{}.json", phase));
     let file = PhaseFile {
         r#type: "phase",
         metadata: PhaseMeta { phase, combos_completed },
-        cumulative: build_cumulative(flags, discovered, event_types),
+        cumulative: build_cumulative(flags, discovered, event_types, observed),
     };
     write_json(&path, &file);
 }
@@ -150,6 +239,7 @@ pub(crate) fn write_phase_file(
 pub(crate) fn save_final(
     discovered: &HashMap<u8, EventDiscovery>,
     flags: &[Flag], event_types: &[EventTypeInfo], dir: &Path,
+    observed: &ObservedTrace,
 ) {
     let flag_infos: Vec<FlagInfo> = flags.iter().enumerate().map(|(i, f)| FlagInfo {
         index: i, name: f.name.clone(),
@@ -178,7 +268,9 @@ pub(crate) fn save_final(
         .collect();
     un.sort_by_key(|e| e.opcode);
 
-    let json = FinalJson { flags: flag_infos, discovered: disc, undiscovered: un };
+    let warnings = build_warnings(observed, flags);
+
+    let json = FinalJson { flags: flag_infos, discovered: disc, undiscovered: un, warnings: warnings.clone() };
     write_json(&dir.join(RESULTS_FILE), &json);
 
     // Text summary
@@ -211,6 +303,41 @@ pub(crate) fn save_final(
             txt.push_str(&format!("  {} [{}] (Opcode={})\n", e.event_name, e.class_name, e.opcode));
         }
     }
+
+    // Warnings section
+    if !warnings.is_empty() {
+        txt.push_str("\n--- Warnings ---\n");
+        let unknown: Vec<&WarningEntry> = warnings.iter()
+            .filter(|w| matches!(w.kind, WarningKind::UnknownOpcode))
+            .collect();
+        let higher: Vec<&WarningEntry> = warnings.iter()
+            .filter(|w| matches!(w.kind, WarningKind::HigherVersion { .. }))
+            .collect();
+
+        if !unknown.is_empty() {
+            txt.push_str("Unknown opcode events:\n");
+            for w in &unknown {
+                txt.push_str(&format!(
+                    "  opcode={} version={} (count={}, class=\"{}\", name=\"{}\", first combo: [{}])\n",
+                    w.opcode, w.version, w.count, w.class_name, w.event_name,
+                    w.first_combo.join(" + ")
+                ));
+            }
+        }
+        if !higher.is_empty() {
+            txt.push_str("Version higher than known:\n");
+            for w in &higher {
+                let max = match &w.kind { WarningKind::HigherVersion { max_known } => max_known, _ => unreachable!() };
+                txt.push_str(&format!(
+                    "  {} [{}] opcode={} version={} (max known V{}, count={}, first combo: [{}])\n",
+                    w.event_name, w.class_name, w.opcode, w.version, max, w.count,
+                    w.first_combo.join(" + ")
+                ));
+            }
+        }
+        txt.push('\n');
+    }
+
     write_str(&txt_path, &txt);
 }
 
@@ -219,6 +346,7 @@ pub(crate) fn save_final(
 pub(crate) fn display(
     discovered: &HashMap<u8, EventDiscovery>,
     flags: &[Flag], event_types: &[EventTypeInfo],
+    observed: &ObservedTrace,
 ) {
     log::info!("\n=== FLAG DISCOVERY RESULTS ===");
 
@@ -267,12 +395,37 @@ pub(crate) fn display(
             }
         }
     }
+
+    // Display warnings
+    let warnings = build_warnings(observed, flags);
+    if !warnings.is_empty() {
+        log::warn!("\n--- Warnings ---");
+        for w in &warnings {
+            match &w.kind {
+                WarningKind::UnknownOpcode => {
+                    log::warn!(
+                        "Unknown opcode: opcode={} version={} count={} class=\"{}\" name=\"{}\" first combo: [{}]",
+                        w.opcode, w.version, w.count, w.class_name, w.event_name,
+                        w.first_combo.join(" + ")
+                    );
+                }
+                WarningKind::HigherVersion { max_known } => {
+                    log::warn!(
+                        "Version higher than known: {} [{}] opcode={} version={} max known V{} count={} first combo: [{}]",
+                        w.event_name, w.class_name, w.opcode, w.version, max_known, w.count,
+                        w.first_combo.join(" + ")
+                    );
+                }
+            }
+        }
+    }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
 
 fn build_cumulative(
-    flags: &[Flag], discovered: &HashMap<u8, EventDiscovery>, event_types: &[EventTypeInfo],
+    flags: &[Flag], discovered: &HashMap<u8, EventDiscovery>,
+    event_types: &[EventTypeInfo], observed: &ObservedTrace,
 ) -> CumulativeState {
     let total = event_types.len();
     let mut entries: Vec<DiscoveredEntry> = discovered.iter().map(|(op, d)| {
@@ -288,7 +441,8 @@ fn build_cumulative(
         }
     }).collect();
     entries.sort_by_key(|e| e.opcode);
-    CumulativeState { discovered: entries, total_event_types: total, discovered_count: discovered.len() }
+    let warnings = build_warnings(observed, flags);
+    CumulativeState { discovered: entries, warnings, total_event_types: total, discovered_count: discovered.len() }
 }
 
 fn sorted_vec(set: &HashSet<u8>) -> Vec<u8> { let mut v: Vec<u8> = set.iter().copied().collect(); v.sort(); v }

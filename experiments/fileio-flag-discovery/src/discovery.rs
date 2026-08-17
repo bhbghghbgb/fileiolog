@@ -18,12 +18,34 @@ pub(crate) struct EventDiscovery {
     pub observed_versions: HashSet<u8>,
 }
 
+/// Accumulates every (opcode, version) pair observed across all runs, with
+/// the first flag-combo indices that surfaced each pair.
+pub(crate) struct ObservedTrace {
+    /// (opcode, version) → total count across all runs
+    pub pairs: HashMap<(u8, u8), u64>,
+    /// (opcode, version) → first flag-combo indices that produced it
+    pub first_combo: HashMap<(u8, u8), Vec<usize>>,
+}
+
+impl ObservedTrace {
+    pub fn new() -> Self {
+        Self { pairs: HashMap::new(), first_combo: HashMap::new() }
+    }
+}
+
+/// Everything discover() returns.
+pub(crate) struct DiscoveryResult {
+    pub per_opcode: HashMap<u8, EventDiscovery>,
+    pub observed: ObservedTrace,
+}
+
 pub(crate) fn discover(
     flags: &[Flag],
     event_types: &[EventTypeInfo],
     output_dir: &Path,
-) -> HashMap<u8, EventDiscovery> {
+) -> DiscoveryResult {
     let mut discovered: HashMap<u8, EventDiscovery> = HashMap::new();
+    let mut observed = ObservedTrace::new();
     let total = event_types.len();
 
     for size in 1..=MAX_COMBO_SIZE {
@@ -54,17 +76,25 @@ pub(crate) fn discover(
                 log::info!("    Run {}/{}", ri + 1, RUNS_PER_COMBO);
                 let raw = run_single_test(&config);
 
-                // Collect this run's opcodes and versions
+                // Collect this run's opcodes, versions, and ALL (opcode,version) pairs
                 let mut run_opcodes: HashSet<u8> = HashSet::new();
                 let mut run_versions: HashMap<u8, HashSet<u8>> = HashMap::new();
+                let mut run_pairs: HashMap<(u8, u8), u64> = HashMap::new();
                 for event in &raw {
                     run_versions
                         .entry(event.opcode)
                         .or_default()
                         .insert(event.version);
                     run_opcodes.insert(event.opcode);
+                    *run_pairs.entry((event.opcode, event.version)).or_default() += 1;
                 }
                 combo_opcodes.extend(run_opcodes.iter());
+
+                // Merge ALL pairs into the global observed accumulator (before known-opcode skip)
+                for (&pair, &count) in &run_pairs {
+                    *observed.pairs.entry(pair).or_default() += count;
+                    observed.first_combo.entry(pair).or_insert_with(|| indices.to_vec());
+                }
 
                 // Update discovered incrementally after each run
                 for &opcode in &run_opcodes {
@@ -92,6 +122,7 @@ pub(crate) fn discover(
                     &run_opcodes,
                     &discovered,
                     event_types,
+                    &observed,
                 );
             }
 
@@ -105,6 +136,7 @@ pub(crate) fn discover(
                 &combo_opcodes,
                 &discovered,
                 event_types,
+                &observed,
             );
             if ci < combos.len() - 1 {
                 std::thread::sleep(Duration::from_secs(1));
@@ -133,6 +165,7 @@ pub(crate) fn discover(
             flags,
             &discovered,
             event_types,
+            &observed,
         );
 
         if count >= total {
@@ -143,7 +176,7 @@ pub(crate) fn discover(
         std::thread::sleep(Duration::from_secs(2));
     }
 
-    discovered
+    DiscoveryResult { per_opcode: discovered, observed }
 }
 
 fn update_discovery(

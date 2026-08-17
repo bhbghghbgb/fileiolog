@@ -421,11 +421,29 @@ pub static EVENT_REGISTRY: Lazy<HashMap<(u8, u8), FileIoEventDef>> = Lazy::new(|
     map
 });
 
+/// Return the max known version for a given opcode across EVENT_REGISTRY, or None if opcode is unknown.
+pub fn max_known_version(opcode: u8) -> Option<u8> {
+    EVENT_REGISTRY
+        .values()
+        .filter(|d| d.opcode == opcode)
+        .map(|d| d.version)
+        .max()
+}
+
+/// Return the canonical (max-version) event definition for a given opcode, or None.
+pub fn canonical_def(opcode: u8) -> Option<&'static FileIoEventDef> {
+    EVENT_REGISTRY
+        .values()
+        .filter(|d| d.opcode == opcode)
+        .max_by_key(|d| d.version)
+}
+
 /// Track unknown opcodes/versions we've already warned about
 static WARNED_UNKNOWN: once_cell::sync::Lazy<Mutex<Vec<(u8, u8)>>> =
     once_cell::sync::Lazy::new(|| Mutex::new(Vec::new()));
 
-/// Log a raw event, handling unknown events with warn-on-ce semantics
+/// Log a raw event, handling unknown events with warn-once semantics.
+/// Classifies: unknown opcode vs. version higher than known.
 pub fn log_event(opcode: u8, event_id: u16, version: u8, _timestamp: u64, process_id: u32, thread_id: u32) {
     let key = (opcode, version);
 
@@ -438,10 +456,24 @@ pub fn log_event(opcode: u8, event_id: u16, version: u8, _timestamp: u64, proces
         let mut warned = WARNED_UNKNOWN.lock().unwrap();
         if !warned.contains(&key) {
             warned.push(key);
-            log::warn!(
-                "Unknown FileIo event: opcode={}, event_id={}, Version={} (first occurrence, PID={}, TID={})",
-                opcode, event_id, version, process_id, thread_id
-            );
+            match max_known_version(opcode) {
+                None => {
+                    log::warn!(
+                        "Unknown FileIo opcode: opcode={}, event_id={}, Version={} \
+                         (no known class; first occurrence, PID={}, TID={})",
+                        opcode, event_id, version, process_id, thread_id
+                    );
+                }
+                Some(max) => {
+                    let canonical = canonical_def(opcode).unwrap();
+                    log::warn!(
+                        "FileIo version higher than known: opcode={}, event_id={}, Version={} \
+                         (class={}, max known V{}, PID={}, TID={})",
+                        opcode, event_id, version,
+                        canonical.class_name, max, process_id, thread_id
+                    );
+                }
+            }
         } else {
             log::debug!(
                 "Unknown FileIo event: opcode={}, event_id={}, Version={} (PID={}, TID={})",

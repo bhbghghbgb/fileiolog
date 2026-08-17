@@ -42,7 +42,7 @@ fn main() {
         log::warn!("Failed to create output directory: {}", e);
     }
 
-    let discovery = discovery::discover(&flag_list, &event_list, output_dir);
-    output::display(&discovery, &flag_list, &event_list);
-    output::save_final(&discovery, &flag_list, &event_list, output_dir);
+    let result = discovery::discover(&flag_list, &event_list, output_dir);
+    output::display(&result.per_opcode, &flag_list, &event_list, &result.observed);
+    output::save_final(&result.per_opcode, &flag_list, &event_list, output_dir, &result.observed);
 }
