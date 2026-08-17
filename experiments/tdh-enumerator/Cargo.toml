@@ -1,0 +1,19 @@
+[package]
+name = "tdh-enumerator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ferrisetw = { git = "https://github.com/n4r1b/ferrisetw", rev = "22caa099ea57a295b0e4cf91a741771bfde6bc0d", features = ["time_rs"] }
+env_logger = "0.11.11"
+log = "0.4.33"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hex = "0.4"
+
+# Must match ferrisetw's internal windows crate version exactly (0.61.3).
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_Diagnostics_Etw",
+] }
