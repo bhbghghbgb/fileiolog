@@ -273,6 +273,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "file-ops-trigger"
+version = "0.1.0"
+dependencies = [
+ "memmap2",
+]
+
+[[package]]
 name = "fileio-events-macro"
 version = "0.1.0"
 dependencies = [
@@ -288,10 +295,10 @@ dependencies = [
  "env_logger",
  "etw-macros",
  "ferrisetw",
+ "file-ops-trigger",
  "fileio-events-macro",
  "fileiolog",
  "log",
- "memmap2",
  "once_cell",
  "serde",
  "serde_json",
@@ -307,10 +314,10 @@ dependencies = [
  "env_logger",
  "etw-macros",
  "ferrisetw",
+ "file-ops-trigger",
  "fileio-events-macro",
  "fileiolog",
  "log",
- "memmap2",
  "once_cell",
  "serde",
  "serde_json",
