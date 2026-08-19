@@ -47,6 +47,7 @@ struct EtwVariant {
     struct_name: Ident,
     template_name: String,
     fields: Punctuated<Field, Token![,]>,
+    impl_items: Option<proc_macro2::TokenStream>,
 }
 
 impl Parse for EtwProviderInput {
@@ -122,6 +123,20 @@ impl Parse for EtwProviderInput {
             let fields_content;
             syn::braced!(fields_content in content);
             let fields = fields_content.parse_terminated(Field::parse_named, Token![,])?;
+
+            // Parse optional impl block after fields (for custom methods on the struct)
+            let impl_items: Option<proc_macro2::TokenStream> = if !fields_content.is_empty() {
+                // Consume trailing comma if present
+                let _ = fields_content.parse::<Token![,]>();
+                // Parse impl keyword
+                fields_content.parse::<Token![impl]>()?;
+                let impl_content;
+                syn::braced!(impl_content in fields_content);
+                let tokens: proc_macro2::TokenStream = impl_content.parse()?;
+                Some(tokens)
+            } else {
+                None
+            };
 
             let mut event_attrs: Vec<Attribute> = Vec::new();
             let mut other_attrs: Vec<Attribute> = Vec::new();
@@ -222,6 +237,7 @@ impl Parse for EtwProviderInput {
                     struct_name: resolved_name,
                     template_name: template_struct_name.to_string(),
                     fields: fields.clone(),
+                    impl_items: impl_items.clone(),
                 });
             }
 
@@ -309,6 +325,12 @@ impl EtwProviderInput {
                     })
                     .collect();
 
+                let impl_methods = v.impl_items.as_ref().map(|items| {
+                    quote! {
+                        #items
+                    }
+                }).unwrap_or_default();
+
                 quote! {
                     #(#attrs)*
                     #[derive(Clone, ::fileiolog::etw::EtwEvent)]
@@ -318,6 +340,8 @@ impl EtwProviderInput {
 
                     impl #name {
                         pub const TEMPLATE_NAME: &str = #template;
+
+                        #impl_methods
                     }
 
                     impl ::std::fmt::Debug for #name {

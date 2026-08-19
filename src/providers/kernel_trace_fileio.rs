@@ -2,6 +2,18 @@
 
 use crate::etw::etw_provider;
 
+/// Differentiates between regular I/O and Fast I/O completion events.
+///
+/// Fast I/O operations bypass the IRP path, so `IrpPtr` is always zero
+/// for `FltIoCompletion` events triggered by `PERF_FLT_FASTIO`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FltIoKind {
+    /// Regular IRP-based minifilter I/O completion.
+    GeneralIo,
+    /// Fast I/O minifilter completion (IrpPtr == 0).
+    FastIo,
+}
+
 pub mod flags {
     pub const EVENT_TRACE_FLAG_DISK_FILE_IO: u32 = 0x00000200;
     pub const EVENT_TRACE_FLAG_FILE_IO: u32 = 0x02000000;
@@ -13,6 +25,7 @@ pub mod flags {
     // with PERFINFO_GROUPMASK to activate them.
     pub const PERF_FLT_IO_INIT: u32 = 0x80080000;
     pub const PERF_FLT_IO: u32 = 0x80100000;
+    pub const PERF_FLT_FASTIO: u32 = 0x80200000;
     pub const PERF_FLT_IO_FAILURE: u32 = 0x80400000;
 }
 
@@ -373,8 +386,10 @@ etw_provider! {
         // Class: FltIoCompletion (EventVersion(3), EventType{98, 99})
         // New in V3: minifilter IO completion events with InitialTime
         // Only accessible via PERFINFO_GROUPMASK (no EnableFlags equivalent)
-        #[etw_event(name = "PreOpCompletionV3", id = 98, version = 3, group_mask = flags::PERF_FLT_IO)]
-        #[etw_event(name = "PostOpCompletionV3", id = 99, version = 3, group_mask = flags::PERF_FLT_IO)]
+        // Both PERF_FLT_IO and PERF_FLT_FASTIO produce these opcodes;
+        // the difference is that for FastIo the IrpPtr field is always zero.
+        #[etw_event(name = "PreOpCompletionV3", id = 98, version = 3, group_mask = flags::PERF_FLT_IO | flags::PERF_FLT_FASTIO)]
+        #[etw_event(name = "PostOpCompletionV3", id = 99, version = 3, group_mask = flags::PERF_FLT_IO | flags::PERF_FLT_FASTIO)]
         pub struct FltIoCompletionV3 {
             #[etw_prop(name = "InitialTime")]
             pub initial_time: u64,
@@ -390,6 +405,19 @@ etw_provider! {
             pub callback_data_ptr: usize,
             #[etw_prop(name = "MajorFunction")]
             pub major_function: u32,
+
+            impl {
+                /// Returns the I/O kind based on whether this is a regular or Fast I/O completion.
+                ///
+                /// Fast I/O operations bypass the IRP path, so `irp_ptr` is always zero.
+                pub fn kind(&self) -> FltIoKind {
+                    if self.irp_ptr == 0 {
+                        FltIoKind::FastIo
+                    } else {
+                        FltIoKind::GeneralIo
+                    }
+                }
+            }
         }
 
         // ── FltIoFailure V3 ───────────────────────────────────
