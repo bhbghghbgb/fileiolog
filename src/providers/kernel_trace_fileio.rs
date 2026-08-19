@@ -69,8 +69,8 @@ etw_provider! {
             pub file_object: usize,
             #[etw_prop(name = "MiscInfo")]
             pub misc_info: u64,
-            #[etw_prop(name = "ViewSize")]
-            pub view_size: u64,
+            #[etw_prop(name = "ViewSize", parse_as = ferrisetw::parser::Pointer)]
+            pub view_size: usize,
             #[etw_prop(name = "ProcessId")]
             pub process_id: u32,
         }
