@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "experiments/fileio-trace-test", "experiments/fileio-trace-test/fileio-events-macro", "experiments/fileio-flag-discovery", "experiments/perf-flt-compare", "experiments/kernel-fileio-example", "experiments/tdh-enumerator", "experiments/file-ops-trigger"]
+members = [".", "experiments/fileio-trace-test", "experiments/fileio-trace-test/fileio-events-macro", "experiments/fileio-flag-discovery", "experiments/perf-flt-compare", "experiments/kernel-fileio-example", "experiments/tdh-enumerator", "experiments/file-ops-trigger", "experiments/tdh-fabricate"]
 resolver = "3"
 
 [package]

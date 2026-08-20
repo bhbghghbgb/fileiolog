@@ -862,6 +862,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tdh-fabricate"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "ferrisetw",
+ "file-ops-trigger",
+ "hex",
+ "log",
+ "serde",
+ "serde_json",
+ "windows",
+]
+
+[[package]]
 name = "termcolor"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
