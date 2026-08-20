@@ -1,4 +1,5 @@
 mod config;
+mod file_ops;
 mod output;
 mod session;
 mod tdh;

@@ -151,6 +151,14 @@ fn run_kernel_session(config: &AppConfig) -> Result<(), String> {
         session_name,
         config.duration
     );
+
+    // Trigger file operations if requested
+    if config.trigger {
+        log::info!("Triggering file operations...");
+        crate::file_ops::trigger_all_file_operations();
+        log::info!("File operations completed");
+    }
+
     std::thread::sleep(Duration::from_secs(config.duration));
 
     // Stop the session
@@ -208,6 +216,14 @@ fn run_user_session(config: &AppConfig) -> Result<(), String> {
         session_name,
         config.duration
     );
+
+    // Trigger file operations if requested
+    if config.trigger {
+        log::info!("Triggering file operations...");
+        crate::file_ops::trigger_all_file_operations();
+        log::info!("File operations completed");
+    }
+
     std::thread::sleep(Duration::from_secs(config.duration));
 
     // Stop the session

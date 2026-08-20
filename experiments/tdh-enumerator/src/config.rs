@@ -48,6 +48,10 @@ pub struct AppConfig {
     /// Enable verbose logging
     #[arg(short, long)]
     pub verbose: bool,
+
+    /// Trigger file-ops-trigger after the session starts processing events
+    #[arg(long)]
+    pub trigger: bool,
 }
 
 impl AppConfig {

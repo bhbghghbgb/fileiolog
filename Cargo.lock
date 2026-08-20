@@ -853,6 +853,7 @@ dependencies = [
  "clap",
  "env_logger",
  "ferrisetw",
+ "file-ops-trigger",
  "hex",
  "log",
  "serde",
