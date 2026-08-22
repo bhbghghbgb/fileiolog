@@ -167,6 +167,9 @@ fn run_kernel_session(config: &AppConfig) -> Result<(), String> {
     // Wait for processing thread to finish
     let _ = thread.join();
 
+    // Drop the trace so the provider (and its callback holding disk_writer) is released
+    drop(_trace);
+
     // Report stats
     let type_count = seen_types.read().unwrap().len();
     log::info!("Observed {} distinct event types", type_count);
@@ -229,6 +232,9 @@ fn run_user_session(config: &AppConfig) -> Result<(), String> {
     // Stop the session
     let _ = stop_trace_by_name(session_name);
     let _ = thread.join();
+
+    // Drop the trace so the provider (and its callback holding disk_writer) is released
+    drop(_trace);
 
     let type_count = seen_types.read().unwrap().len();
     log::info!("Observed {} distinct event types", type_count);
