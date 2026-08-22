@@ -105,17 +105,12 @@ fn parse_guid(s: &str) -> Result<windows::core::GUID, String> {
     let data2 = u16::from_str_radix(parts[1], 16).map_err(|e| format!("Invalid data2: {}", e))?;
     let data3 = u16::from_str_radix(parts[2], 16).map_err(|e| format!("Invalid data3: {}", e))?;
 
-    let data4_str1 = format!("{}{}", parts[3], &parts[4][0..2]);
-    let data4_str2 = &parts[4][2..];
+    let data4_hex = format!("{}{}", parts[3], parts[4]);
 
     let mut data4 = [0u8; 8];
-    for i in 0..4 {
-        data4[i] = u8::from_str_radix(&data4_str1[i * 2..i * 2 + 2], 16)
+    for i in 0..8 {
+        data4[i] = u8::from_str_radix(&data4_hex[i * 2..i * 2 + 2], 16)
             .map_err(|e| format!("Invalid data4[{}]: {}", i, e))?;
-    }
-    for i in 0..4 {
-        data4[4 + i] = u8::from_str_radix(&data4_str2[i * 2..i * 2 + 2], 16)
-            .map_err(|e| format!("Invalid data4[{}]: {}", i + 4, e))?;
     }
 
     Ok(windows::core::GUID {
