@@ -4,15 +4,92 @@ use std::io::{BufWriter, Write};
 use std::sync::mpsc;
 use std::thread;
 
+use serde::Serialize;
+
 pub use crate::types::WriteCommand;
-use crate::types::{EventObservation, EventTypeInfo};
+use crate::types::{
+    EventObservation, EventTypeInfo, PropertyCountInfo, PropertyInfo, PropertyLengthInfo,
+    SerializedObservation, in_type_name, out_type_name,
+};
 
 /// Channel buffer size for write commands
 const WRITE_CHANNEL_BUFFER: usize = 4096;
 
-/// Pre-allocated capacity for observations per event type
-#[allow(dead_code)]
-const OBSERVATIONS_PER_TYPE: usize = 4096;
+// ── Serializable wrappers (built only at JSON write time) ────────────────
+
+#[derive(Serialize)]
+struct SerPropertyInfo<'a> {
+    name: &'a str,
+    in_type: u16,
+    in_type_name: &'static str,
+    out_type: u16,
+    out_type_name: &'static str,
+    length: SerPropertyLengthInfo,
+    count: Option<SerPropertyCountInfo>,
+    flags: u32,
+    flags_hex: String,
+}
+
+#[derive(Serialize)]
+enum SerPropertyLengthInfo {
+    Fixed(u16),
+    Index(u16),
+}
+
+#[derive(Serialize)]
+enum SerPropertyCountInfo {
+    Fixed(u16),
+    Index(u16),
+}
+
+#[derive(Serialize)]
+struct SerEventTypeInfo<'a> {
+    provider_guid: &'a str,
+    event_id: u16,
+    opcode: u8,
+    version: u8,
+    provider_name: &'a str,
+    opcode_name: &'a str,
+    properties: Vec<SerPropertyInfo<'a>>,
+}
+
+impl<'a> From<&'a EventTypeInfo> for SerEventTypeInfo<'a> {
+    fn from(info: &'a EventTypeInfo) -> Self {
+        SerEventTypeInfo {
+            provider_guid: &info.provider_guid,
+            event_id: info.event_id,
+            opcode: info.opcode,
+            version: info.version,
+            provider_name: &info.provider_name,
+            opcode_name: &info.opcode_name,
+            properties: info.properties.iter().map(SerPropertyInfo::from).collect(),
+        }
+    }
+}
+
+impl<'a> From<&'a PropertyInfo> for SerPropertyInfo<'a> {
+    fn from(p: &'a PropertyInfo) -> Self {
+        SerPropertyInfo {
+            name: &p.name,
+            in_type: p.in_type,
+            in_type_name: in_type_name(p.in_type),
+            out_type: p.out_type,
+            out_type_name: out_type_name(p.out_type),
+            length: match p.length {
+                PropertyLengthInfo::Fixed(v) => SerPropertyLengthInfo::Fixed(v),
+                PropertyLengthInfo::Index(v) => SerPropertyLengthInfo::Index(v),
+            },
+            count: p.count.as_ref().map(|c| match c {
+                PropertyCountInfo::Fixed(v) => SerPropertyCountInfo::Fixed(*v),
+                PropertyCountInfo::Index(v) => SerPropertyCountInfo::Index(*v),
+            }),
+            flags: p.flags,
+            flags_hex: format!("0x{:08x}", p.flags),
+        }
+    }
+}
+
+// ── DiskWriter ───────────────────────────────────────────────────────────
 
 /// Handles writing event data to disk on a dedicated thread.
 ///
@@ -160,15 +237,18 @@ impl DiskWriter {
         let path = format!("{}/{}_schema.json", output_prefix, Self::sanitize_key(key));
         let file = File::create(&path).map_err(|e| format!("create: {}", e))?;
         let mut writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(&mut writer, type_info)
+        let ser = SerEventTypeInfo::from(type_info);
+        serde_json::to_writer_pretty(&mut writer, &ser)
             .map_err(|e| format!("json: {}", e))?;
         writer.flush().map_err(|e| format!("flush: {}", e))?;
         Ok(())
     }
 
     fn append_observation(writer: &mut BufWriter<File>, obs: &EventObservation) {
+        // Convert to serialized form (formats hex on demand)
+        let ser = SerializedObservation::from(obs);
         // Write as JSONL (one JSON object per line) for efficient appending
-        if let Ok(mut line) = serde_json::to_vec(obs) {
+        if let Ok(mut line) = serde_json::to_vec(&ser) {
             line.push(b'\n');
             let _ = writer.write_all(&line);
         }
@@ -179,16 +259,16 @@ impl DiskWriter {
         type_infos: &[EventTypeInfo],
         observation_counts: &HashMap<String, u64>,
     ) -> Result<(), String> {
+        #[derive(Serialize)]
+        struct TypeSummary<'a> {
+            #[serde(flatten)]
+            type_info: SerEventTypeInfo<'a>,
+            observation_count: u64,
+        }
+
         let path = format!("{}/_summary.json", output_prefix);
         let file = File::create(&path).map_err(|e| format!("create: {}", e))?;
         let mut writer = BufWriter::new(file);
-
-        #[derive(serde::Serialize)]
-        struct TypeSummary<'a> {
-            #[serde(flatten)]
-            type_info: &'a EventTypeInfo,
-            observation_count: u64,
-        }
 
         let summaries: Vec<TypeSummary> = type_infos
             .iter()
@@ -196,7 +276,7 @@ impl DiskWriter {
                 let key = Self::type_file_key(ti);
                 let count = observation_counts.get(&key).copied().unwrap_or(0);
                 TypeSummary {
-                    type_info: ti,
+                    type_info: SerEventTypeInfo::from(ti),
                     observation_count: count,
                 }
             })

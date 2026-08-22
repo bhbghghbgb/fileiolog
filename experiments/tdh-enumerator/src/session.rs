@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ptr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -32,9 +32,11 @@ pub fn run_session(config: &AppConfig) -> Result<(), String> {
 /// 2. Checks the seen_types cache
 /// 3. On first appearance: extracts full schema via TDH, sends schema + observation
 /// 4. On subsequent appearances: sends only observation
+/// 5. Logs TDH extraction errors only once per event key
 fn build_callback(
     seen_types: Arc<std::sync::RwLock<HashMap<EventTypeId, u32>>>,
     disk_writer: Arc<DiskWriter>,
+    logged_errors: Arc<std::sync::RwLock<HashSet<String>>>,
 ) -> impl Fn(&EventRecord, &SchemaLocator) + Clone + Send + Sync + 'static {
     move |record: &EventRecord, _schema_locator: &SchemaLocator| {
         let type_id = tdh::build_type_id(record);
@@ -69,15 +71,7 @@ fn build_callback(
                 );
 
                 // Log first appearance
-                log::info!(
-                    "New event type: {} {} (opcode={}, v{}, id={}) - {} properties",
-                    type_info.provider_name,
-                    type_info.opcode_name,
-                    type_info.opcode,
-                    type_info.version,
-                    type_info.event_id,
-                    type_info.properties.len(),
-                );
+                log::info!("New event type: {}", type_info);
 
                 // Mark as seen
                 {
@@ -91,11 +85,22 @@ fn build_callback(
                 disk_writer.send(WriteCommand::Observation(obs));
             }
             Err(e) => {
-                log::warn!(
-                    "Failed to extract event info: opcode={}, error={}",
-                    record.opcode(),
-                    e
+                let key = format!(
+                    "{}_{}_v{}_op{}",
+                    tdh::sanitize_key_static(&type_id.provider_guid),
+                    type_id.event_id,
+                    type_id.version,
+                    type_id.opcode,
                 );
+                // Only log once per event key
+                let mut errors = logged_errors.write().unwrap();
+                if errors.insert(key.clone()) {
+                    log::warn!(
+                        "Failed to extract event info: key={}, error={}",
+                        key,
+                        e
+                    );
+                }
             }
         }
     }
@@ -113,11 +118,13 @@ fn run_kernel_session(config: &AppConfig) -> Result<(), String> {
     // Pre-allocate seen_types with reasonable capacity
     let seen_types: Arc<std::sync::RwLock<HashMap<EventTypeId, u32>>> =
         Arc::new(std::sync::RwLock::new(HashMap::with_capacity(256)));
+    let logged_errors: Arc<std::sync::RwLock<HashSet<String>>> =
+        Arc::new(std::sync::RwLock::new(HashSet::new()));
     let disk_writer = Arc::new(DiskWriter::new(&config.output_prefix));
 
     let kernel_provider = KernelProvider::new(provider_guid, enable_flags);
 
-    let cb = build_callback(seen_types.clone(), disk_writer.clone());
+    let cb = build_callback(seen_types.clone(), disk_writer.clone(), logged_errors.clone());
     let provider = Provider::kernel(&kernel_provider)
         .level(config.level)
         .any(0)
@@ -193,9 +200,11 @@ fn run_user_session(config: &AppConfig) -> Result<(), String> {
 
     let seen_types: Arc<std::sync::RwLock<HashMap<EventTypeId, u32>>> =
         Arc::new(std::sync::RwLock::new(HashMap::with_capacity(256)));
+    let logged_errors: Arc<std::sync::RwLock<HashSet<String>>> =
+        Arc::new(std::sync::RwLock::new(HashSet::new()));
     let disk_writer = Arc::new(DiskWriter::new(&config.output_prefix));
 
-    let cb = build_callback(seen_types.clone(), disk_writer.clone());
+    let cb = build_callback(seen_types.clone(), disk_writer.clone(), logged_errors.clone());
     let provider = Provider::by_guid(provider_guid)
         .level(config.level)
         .any(keyword)
