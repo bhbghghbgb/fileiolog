@@ -6,7 +6,7 @@ use windows::Win32::System::Diagnostics::Etw::{self, TRACE_EVENT_INFO};
 
 use crate::types::{
     EventObservation, EventTypeId, EventTypeInfo, PropertyCountInfo, PropertyInfo,
-    PropertyLengthInfo, error_code_name,
+    PropertyLengthInfo, format_win32_error,
 };
 
 /// Transmute a ferrisetw EventRecord reference to a raw EVENT_RECORD pointer.
@@ -99,9 +99,8 @@ fn get_trace_event_info(record: &EventRecord) -> Result<TraceEventInfoBuffer, St
     let status = unsafe { Etw::TdhGetEventInformation(raw_ptr, None, None, &mut buffer_size) };
     if status != ERROR_INSUFFICIENT_BUFFER.0 {
         return Err(format!(
-            "TdhGetEventInformation (size query) failed: {} ({})",
-            error_code_name(status),
-            status,
+            "TdhGetEventInformation (size query) failed: {}",
+            format_win32_error(status),
         ));
     }
 
@@ -131,9 +130,8 @@ fn get_trace_event_info(record: &EventRecord) -> Result<TraceEventInfoBuffer, St
             std::alloc::dealloc(data, layout);
         }
         return Err(format!(
-            "TdhGetEventInformation failed: {} ({})",
-            error_code_name(status),
-            status,
+            "TdhGetEventInformation failed: {}",
+            format_win32_error(status),
         ));
     }
 

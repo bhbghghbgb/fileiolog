@@ -8,8 +8,8 @@ use serde::Serialize;
 
 pub use crate::types::WriteCommand;
 use crate::types::{
-    EventObservation, EventTypeInfo, PropertyCountInfo, PropertyInfo, PropertyLengthInfo,
-    SerializedObservation, in_type_name, out_type_name,
+    EventError, EventObservation, EventTypeInfo, PropertyCountInfo, PropertyInfo,
+    PropertyLengthInfo, SerializedObservation, in_type_name, out_type_name,
 };
 
 /// Channel buffer size for write commands
@@ -141,6 +141,9 @@ impl DiskWriter {
         let mut type_infos: Vec<EventTypeInfo> = Vec::with_capacity(256);
         // Count observations per type
         let mut observation_counts: HashMap<String, u64> = HashMap::new();
+        // Error file writer (opened lazily)
+        let mut error_writer: Option<BufWriter<File>> = None;
+        let mut error_count: u64 = 0;
 
         // Ensure output directory exists
         let _ = fs::create_dir_all(output_prefix);
@@ -185,6 +188,10 @@ impl DiskWriter {
                         }
                     }
                 }
+                Ok(WriteCommand::Error(event_err)) => {
+                    error_count += 1;
+                    Self::append_error(&mut error_writer, output_prefix, &event_err);
+                }
                 Ok(WriteCommand::Shutdown) => {
                     break;
                 }
@@ -202,14 +209,27 @@ impl DiskWriter {
             }
         }
 
+        // Flush error writer
+        if let Some(mut writer) = error_writer.take() {
+            if let Err(e) = writer.flush() {
+                log::error!("Failed to flush error writer: {}", e);
+            }
+        }
+
         // Write final summary file
-        if let Err(e) = Self::write_summary_file(output_prefix, &type_infos, &observation_counts) {
+        if let Err(e) = Self::write_summary_file(
+            output_prefix,
+            &type_infos,
+            &observation_counts,
+            error_count,
+        ) {
             log::error!("Failed to write summary file: {}", e);
         }
 
         log::info!(
-            "Disk writer shutting down. {} event types, total observations written.",
-            type_infos.len()
+            "Disk writer shutting down. {} event types, {} errors, total observations written.",
+            type_infos.len(),
+            error_count,
         );
     }
 
@@ -254,16 +274,61 @@ impl DiskWriter {
         }
     }
 
+    fn append_error(
+        writer: &mut Option<BufWriter<File>>,
+        output_prefix: &str,
+        event_err: &EventError,
+    ) {
+        // Open error file lazily
+        if writer.is_none() {
+            let path = format!("{}/_errors.jsonl", output_prefix);
+            match File::create(&path) {
+                Ok(f) => {
+                    *writer = Some(BufWriter::with_capacity(64 * 1024, f));
+                }
+                Err(e) => {
+                    log::error!("Failed to create {}: {}", path, e);
+                    return;
+                }
+            }
+        }
+
+        #[derive(Serialize)]
+        struct SerError<'a> {
+            type_key: &'a str,
+            error_message: &'a str,
+        }
+
+        let ser = SerError {
+            type_key: &event_err.type_key,
+            error_message: &event_err.error_message,
+        };
+
+        if let Some(w) = writer {
+            if let Ok(mut line) = serde_json::to_vec(&ser) {
+                line.push(b'\n');
+                let _ = w.write_all(&line);
+            }
+        }
+    }
+
     fn write_summary_file(
         output_prefix: &str,
         type_infos: &[EventTypeInfo],
         observation_counts: &HashMap<String, u64>,
+        error_count: u64,
     ) -> Result<(), String> {
         #[derive(Serialize)]
         struct TypeSummary<'a> {
             #[serde(flatten)]
             type_info: SerEventTypeInfo<'a>,
             observation_count: u64,
+        }
+
+        #[derive(Serialize)]
+        struct Summary<'a> {
+            event_types: Vec<TypeSummary<'a>>,
+            error_count: u64,
         }
 
         let path = format!("{}/_summary.json", output_prefix);
@@ -282,11 +347,16 @@ impl DiskWriter {
             })
             .collect();
 
-        serde_json::to_writer_pretty(&mut writer, &summaries)
+        let summary = Summary {
+            event_types: summaries,
+            error_count,
+        };
+
+        serde_json::to_writer_pretty(&mut writer, &summary)
             .map_err(|e| format!("json: {}", e))?;
         writer.flush().map_err(|e| format!("flush: {}", e))?;
 
-        log::info!("Wrote summary with {} event types to {}", summaries.len(), path);
+        log::info!("Wrote summary with {} event types to {}", summary.event_types.len(), path);
         Ok(())
     }
 }

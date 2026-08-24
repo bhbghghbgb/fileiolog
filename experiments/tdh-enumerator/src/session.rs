@@ -15,7 +15,7 @@ use windows::core::PCWSTR;
 use crate::config::{AppConfig, TraceMode};
 use crate::output::{DiskWriter, WriteCommand};
 use crate::tdh;
-use crate::types::EventTypeId;
+use crate::types::{EventError, EventTypeId};
 
 /// Run the trace session based on config
 pub fn run_session(config: &AppConfig) -> Result<(), String> {
@@ -92,14 +92,20 @@ fn build_callback(
                     type_id.version,
                     type_id.opcode,
                 );
-                // Only log once per event key
+
+                // Still record the observation from the EVENT_RECORD
+                let obs = tdh::build_observation(record, &key);
+                disk_writer.send(WriteCommand::Observation(obs));
+
+                // Send error to disk and log (once per event key)
                 let mut errors = logged_errors.write().unwrap();
                 if errors.insert(key.clone()) {
-                    log::warn!(
-                        "Failed to extract event info: key={}, error={}",
-                        key,
-                        e
-                    );
+                    let event_err = EventError {
+                        type_key: key.clone(),
+                        error_message: e.clone(),
+                    };
+                    disk_writer.send(WriteCommand::Error(event_err));
+                    log::warn!("Failed to extract event info: key={}, error={}", key, e);
                 }
             }
         }

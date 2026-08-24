@@ -188,21 +188,10 @@ pub fn out_type_name(out_type: u16) -> &'static str {
     }
 }
 
-/// Windows error code to name lookup
-pub fn error_code_name(code: u32) -> &'static str {
-    match code {
-        0 => "ERROR_SUCCESS",
-        2 => "ERROR_FILE_NOT_FOUND",
-        6 => "ERROR_INVALID_HANDLE",
-        8 => "ERROR_NOT_ENOUGH_MEMORY",
-        13 => "ERROR_INVALID_DATA",
-        87 => "ERROR_INVALID_PARAMETER",
-        111 => "ERROR_ALREADY_EXISTS",
-        1223 => "ERROR_CANCELLED",
-        1168 => "ERROR_NOT_FOUND",
-        4317 => "ERROR_NOT_FOUND",
-        _ => "UNKNOWN",
-    }
+/// Format a Windows error code into a human-readable message using the OS message table.
+pub fn format_win32_error(code: u32) -> String {
+    let io_err = std::io::Error::from_raw_os_error(code as i32);
+    format!("{} ({})", io_err, code)
 }
 
 /// Runtime event observation (lightweight, no schema extraction).
@@ -249,6 +238,15 @@ pub enum WriteCommand {
     NewType(EventTypeInfo),
     /// An observation of an event (first-seen or subsequent)
     Observation(EventObservation),
+    /// A TDH extraction error for an event key (one per key)
+    Error(EventError),
     /// Flush and close all files
     Shutdown,
+}
+
+/// A TDH extraction error, recorded once per event key.
+#[derive(Debug, Clone)]
+pub struct EventError {
+    pub type_key: String,
+    pub error_message: String,
 }
