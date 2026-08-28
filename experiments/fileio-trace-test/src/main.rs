@@ -6,14 +6,23 @@ mod trace_session;
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use clap::Parser as ClapParser;
 use events::{EVENT_REGISTRY, ParsedFileIoEvent};
 use trace_session::{KernelTraceSession, TraceConfig};
 
-const PERSIST_FILE: &str = "fileio_test_results.json";
+#[derive(Debug, ClapParser)]
+#[command(name = "fileio-trace-test")]
+#[command(about = "Test FileIo ETW trace configurations")]
+struct Args {
+    /// Output directory for results
+    #[arg(short, long, default_value = "output")]
+    output: PathBuf,
+}
+
 const EVENTS_DIR: &str = "fileio_events";
 
 /// Test configuration for a single flag/mask combination
@@ -28,18 +37,21 @@ fn main() {
         .format_timestamp_millis()
         .init();
 
+    let args = Args::parse();
+    let output_dir = &args.output;
+    let persist_path = output_dir.join("fileio_test_results.json");
+    let events_dir = output_dir.join(EVENTS_DIR);
+
     log::info!("=== FileIo ETW Trace Test ===");
     log::info!("This test will iterate through different EnableFlags and PERFINFO_GROUPMASK");
     log::info!("configurations to discover which FileIo event types are enabled by each.");
     log::info!("");
 
     // Load previous persisted results
-    let persist_path = Path::new(PERSIST_FILE);
-    let mut persisted = persist::load(persist_path);
+    let mut persisted = persist::load(&persist_path);
 
     // Create events output directory
-    let events_dir = Path::new(EVENTS_DIR);
-    if let Err(e) = fs::create_dir_all(events_dir) {
+    if let Err(e) = fs::create_dir_all(&events_dir) {
         log::warn!("Failed to create events directory {}: {}", events_dir.display(), e);
     }
 
@@ -95,7 +107,7 @@ fn main() {
 
         // Write parsed events to file immediately after session ends
         // (flush to disk before next session to avoid contributing to events)
-        write_events_to_file(events_dir, &config.name, &parsed_events);
+        write_events_to_file(&events_dir, &config.name, &parsed_events);
 
         // Compute and store this config's event counts for merging
         let counts = persist::compute_counts(&collected_events);
@@ -140,7 +152,7 @@ fn main() {
 
     // Merge current run with persisted data and save
     persist::merge(&mut persisted, &current_counts);
-    persist::save(persist_path, &persisted);
+    persist::save(&persist_path, &persisted);
 
     // Display cumulative results
     persist::display(&persisted, &current_counts);

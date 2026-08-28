@@ -292,6 +292,7 @@ dependencies = [
 name = "fileio-flag-discovery"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "env_logger",
  "etw-macros",
  "ferrisetw",
@@ -311,6 +312,7 @@ dependencies = [
 name = "fileio-trace-test"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "env_logger",
  "etw-macros",
  "ferrisetw",
@@ -434,9 +436,12 @@ dependencies = [
 name = "kernel-fileio-example"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "env_logger",
  "ferrisetw",
  "log",
+ "serde",
+ "serde_json",
  "windows",
 ]
 
@@ -581,6 +586,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 name = "perf-flt-compare"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "env_logger",
  "etw-macros",
  "ferrisetw",
@@ -865,6 +871,7 @@ dependencies = [
 name = "tdh-fabricate"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "env_logger",
  "ferrisetw",
  "file-ops-trigger",

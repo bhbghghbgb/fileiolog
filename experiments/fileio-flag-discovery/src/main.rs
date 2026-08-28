@@ -8,14 +8,27 @@ mod output;
 mod trace_session;
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-const OUTPUT_DIR: &str = "flag_discovery_output";
+use clap::Parser as ClapParser;
+
+#[derive(Debug, ClapParser)]
+#[command(name = "fileio-flag-discovery")]
+#[command(about = "Discover which EnableFlags/GROUPMASK enable which FileIo events")]
+struct Args {
+    /// Output directory for results
+    #[arg(short, long, default_value = "output")]
+    output: PathBuf,
+}
+
 const RESULTS_FILE: &str = "flag_discovery_results.json";
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp_millis().init();
+
+    let args = Args::parse();
+    let output_dir = &args.output;
 
     log::info!("=== FileIo Flag Discovery ===");
     log::info!("Runs per combination: {}", discovery::RUNS_PER_COMBO);
@@ -37,7 +50,6 @@ fn main() {
     }
     log::info!("");
 
-    let output_dir = Path::new(OUTPUT_DIR);
     if let Err(e) = fs::create_dir_all(output_dir) {
         log::warn!("Failed to create output directory: {}", e);
     }

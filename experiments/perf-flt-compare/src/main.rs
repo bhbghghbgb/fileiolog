@@ -4,10 +4,11 @@ mod session;
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use clap::Parser as ClapParser;
 use analysis::{Hypothesis, PassResult, Verdict};
 use event::{Config, RawEvent};
 use session::{KernelTraceSession, TraceConfig};
@@ -18,10 +19,22 @@ const COLLECTION_SECS: u64 = 8;
 const PAUSE_BETWEEN_CONFIGS_SECS: u64 = 1;
 const PAUSE_BETWEEN_PASSES_SECS: u64 = 2;
 
+#[derive(Debug, ClapParser)]
+#[command(name = "perf-flt-compare")]
+#[command(about = "Compare PERF_FLT_IO vs PERF_FLT_FASTIO event behavior")]
+struct Args {
+    /// Output directory for results
+    #[arg(short, long, default_value = "output")]
+    output: PathBuf,
+}
+
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp_millis()
         .init();
+
+    let args = Args::parse();
+    let output_dir = &args.output;
 
     log::info!("=== PERF_FLT_IO vs PERF_FLT_FASTIO: intrinsic-discriminator comparison ===");
     log::info!("Research basis: PERF_FLT_IO = SYSTEM_IOFILTER_KW_GENERAL (IRP-based),");
@@ -89,7 +102,7 @@ fn main() {
     log::info!("=== ANALYSIS (pooled over {} passes) ===", passes.len());
     let verdict = analysis::analyze(&passes);
     display_verdict(&verdict);
-    save_results(&verdict);
+    save_results(&verdict, output_dir);
 }
 
 /// Run a single trace session for the given configuration.
@@ -291,7 +304,7 @@ fn display_verdict(v: &Verdict) {
     }
 }
 
-fn save_results(v: &Verdict) {
+fn save_results(v: &Verdict, output_dir: &Path) {
     let output = serde_json::json!({
         "num_passes": v.num_passes,
         "discriminator": {
@@ -318,17 +331,95 @@ fn save_results(v: &Verdict) {
         "best": v.best.to_string(),
     });
 
-    let path = "flt_compare_results.json";
+    if let Err(e) = fs::create_dir_all(output_dir) {
+        log::error!("Failed to create output directory: {}", e);
+        return;
+    }
+
+    // Write JSON output
+    let json_path = output_dir.join("flt_compare_results.json");
     match serde_json::to_string_pretty(&output) {
         Ok(json) => {
-            if let Err(e) = fs::write(path, json) {
-                log::error!("Failed to write {}: {}", path, e);
+            if let Err(e) = fs::write(&json_path, json) {
+                log::error!("Failed to write {}: {}", json_path.display(), e);
             } else {
-                log::info!("Results saved to {}", path);
+                log::info!("Results saved to {}", json_path.display());
             }
         }
         Err(e) => {
             log::error!("Failed to serialize results: {}", e);
         }
+    }
+
+    // Write human-readable text output
+    let txt_path = output_dir.join("flt_compare_results.txt");
+    let mut txt = String::from("=== PERF_FLT_IO vs PERF_FLT_FASTIO Comparison Results ===\n\n");
+    txt.push_str(&format!("Number of passes: {}\n\n", v.num_passes));
+
+    txt.push_str("--- Discriminator validation (IrpPtr == 0) ---\n");
+    txt.push_str(&format!("  FASTIO-only run: {:.1}% of events have IrpPtr==0\n", v.fastio_fast_frac * 100.0));
+    txt.push_str(&format!("  IO-only run:     {:.1}% of events have IrpPtr==0\n", v.io_fast_frac * 100.0));
+    if v.fastio_fast_frac > 0.8 && v.io_fast_frac < 0.2 {
+        txt.push_str("  -> IrpPtr==0 is a VALID discriminator (FASTIO events carry no real IRP).\n");
+    } else {
+        txt.push_str("  -> IrpPtr==0 is NOT a clean discriminator; results below are suggestive only.\n");
+    }
+    txt.push('\n');
+
+    txt.push_str("--- Event totals (pooled) ---\n");
+    txt.push_str(&format!("  FASTIO: {} events (fast={}, nonfast={})\n", v.fastio.total, v.fastio.fast, v.fastio.nonfast));
+    txt.push_str(&format!("  IO:     {} events (fast={}, nonfast={})\n", v.io.total, v.io.fast, v.io.nonfast));
+    txt.push_str(&format!("  BOTH:   {} events\n", v.both.total));
+    txt.push_str(&format!("    fast partition:    {} events\n", v.both_fast.total));
+    txt.push_str(&format!("    non-fast partition:{} events\n", v.both_nonfast.total));
+    txt.push('\n');
+
+    txt.push_str("--- MajorFunction set comparison ---\n");
+    let all_majors: BTreeMap<u32, usize> = v
+        .both
+        .majors
+        .keys()
+        .chain(v.fastio.majors.keys())
+        .map(|&k| (k, 0))
+        .collect();
+    for (maj, _) in all_majors {
+        let f = v.fastio.majors.get(&maj).copied().unwrap_or(0);
+        let i = v.io.majors.get(&maj).copied().unwrap_or(0);
+        let bf = v.both_fast.majors.get(&maj).copied().unwrap_or(0);
+        let bn = v.both_nonfast.majors.get(&maj).copied().unwrap_or(0);
+        txt.push_str(&format!(
+            "  MJ_{:>2}: FASTIO={}  IO={}  | BOTH-fast={}  BOTH-nonfast={}\n",
+            maj, f, i, bf, bn
+        ));
+    }
+    txt.push('\n');
+
+    txt.push_str("--- Hypothesis scores ---\n");
+    for (hyp, score) in &v.scores {
+        txt.push_str(&format!("  {:<30} {:.1}%\n", format!("{}", hyp), score));
+    }
+    txt.push_str(&format!("\n>>> BEST HYPOTHESIS: {} ({:.1}%)\n", v.best, v.scores[0].1));
+
+    match v.best {
+        Hypothesis::Disjoint => {
+            txt.push_str("Interpretation: PERF_FLT_FASTIO and PERF_FLT_IO emit DIFFERENT event instances.\n");
+            txt.push_str("Fast I/O (cached, IrpPtr==0) vs IRP-based I/O; sets are mutually exclusive.\n");
+        }
+        Hypothesis::Subset => {
+            txt.push_str("Interpretation: FASTIO events are a subset of IO events (same underlying event,\n");
+            txt.push_str("  extra Fast I/O instances only surface under the IO flag).\n");
+        }
+        Hypothesis::PartialOverlap => {
+            txt.push_str("Interpretation: the two flags share some instances but each also emits unique ones.\n");
+        }
+        Hypothesis::Same => {
+            txt.push_str("Interpretation: the flags are effectively identical for FltIoCompletion.\n");
+        }
+    }
+
+    if let Err(e) = fs::write(&txt_path, &txt) {
+        log::error!("Failed to write {}: {}", txt_path.display(), e);
+    } else {
+        log::info!("Text output saved to {}", txt_path.display());
     }
 }
