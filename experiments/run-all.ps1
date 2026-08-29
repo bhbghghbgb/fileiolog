@@ -10,6 +10,24 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# ── Auto-elevate (only relaunch via UAC when not already admin) ──
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator
+)
+if (-not $isAdmin) {
+    Write-Host "Relaunching as Administrator..." -ForegroundColor Yellow
+    $scriptPath = $MyInvocation.MyCommand.Path
+    try {
+        $p = Start-Process -FilePath "powershell.exe" -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`""
+        ) -Verb RunAs -Wait -PassThru
+        exit $p.ExitCode
+    } catch {
+        Write-Warning "Elevation failed: $_"
+        exit 1
+    }
+}
+
 $RootDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $projectDirs = Get-ChildItem -LiteralPath $RootDir -Directory | Sort-Object Name
