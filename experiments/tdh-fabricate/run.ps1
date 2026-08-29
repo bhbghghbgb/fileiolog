@@ -14,10 +14,15 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if (-not $isAdmin) {
     Write-Host "Relaunching as Administrator (needed for experiments 1,3,5,6,7)..." -ForegroundColor Yellow
     $scriptPath = $MyInvocation.MyCommand.Path
-    Start-Process -FilePath "powershell.exe" -ArgumentList @(
-        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`""
-    ) -Verb RunAs -Wait
-    exit
+    try {
+        $p = Start-Process -FilePath "powershell.exe" -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`""
+        ) -Verb RunAs -Wait -PassThru
+        exit $p.ExitCode
+    } catch {
+        Write-Warning "Elevation failed: $_"
+        exit 1
+    }
 }
 
 # ── Paths ─────────────────────────────────────────────────────
@@ -42,6 +47,7 @@ Write-Host ("=" * 60)
 
 if ($LASTEXITCODE -ne 0) {
     Write-Warning "tdh-fabricate exited with code $LASTEXITCODE"
+    exit $LASTEXITCODE
 }
 
 Write-Host "`n$("=" * 60)" -ForegroundColor Green

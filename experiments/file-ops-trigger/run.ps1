@@ -29,6 +29,7 @@ Write-Host ("=" * 60)
 
 if ($LASTEXITCODE -ne 0) {
     Write-Warning "file-ops-trigger exited with code $LASTEXITCODE"
+    exit $LASTEXITCODE
 }
 
 Write-Host "`n$("=" * 60)" -ForegroundColor Green

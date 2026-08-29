@@ -14,10 +14,15 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if (-not $isAdmin) {
     Write-Host "Relaunching as Administrator..." -ForegroundColor Yellow
     $scriptPath = $MyInvocation.MyCommand.Path
-    Start-Process -FilePath "powershell.exe" -ArgumentList @(
-        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`""
-    ) -Verb RunAs -Wait
-    exit
+    try {
+        $p = Start-Process -FilePath "powershell.exe" -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`""
+        ) -Verb RunAs -Wait -PassThru
+        exit $p.ExitCode
+    } catch {
+        Write-Warning "Elevation failed: $_"
+        exit 1
+    }
 }
 
 # ── Paths ─────────────────────────────────────────────────────
@@ -58,8 +63,11 @@ function Invoke-Run {
 
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "tdh-enumerator exited with code $LASTEXITCODE"
+        if (-not $script:failed) { $script:failed = $LASTEXITCODE }
     }
 }
+
+$script:failed = $null
 
 # ── Runs ──────────────────────────────────────────────────────
 Write-Host ("=" * 60)
@@ -93,6 +101,11 @@ Invoke-Run "COMBO:ALL_EF + ALL_FLT - all EnableFlags + all FLT masks" "combo_all
 )
 
 # ── Done ──────────────────────────────────────────────────────
+if ($script:failed) {
+    Write-Warning "tdh-enumerator had failures (last exit code: $script:failed)"
+    exit $script:failed
+}
+
 Write-Host "`n$("=" * 60)" -ForegroundColor Green
 Write-Host " Done. Output in: $OutputDir" -ForegroundColor Green
 Write-Host ("=" * 60) -ForegroundColor Green
