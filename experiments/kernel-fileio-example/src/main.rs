@@ -326,12 +326,17 @@ fn main() {
     log::info!("Kernel FileIO trace active for 3 seconds...");
 
     // Trigger file operations to generate ETW events
-    log::info!("Triggering file operations...");
+    log::debug!("Invoking file-ops-trigger...");
     let bin = file_ops_trigger::bin_path();
-    let _ = std::process::Command::new(&bin)
-        .output()
-        .map_err(|e| log::warn!("Failed to invoke file-ops-trigger: {}", e));
-
+    match std::process::Command::new(&bin).output() {
+        Ok(output) => {
+            log::debug!("file-ops-trigger exited with status: {}", output.status);
+        }
+        Err(e) => {
+            log::warn!("Failed to invoke file-ops-trigger: {}", e);
+        }
+    }
+    log::debug!("Waiting for ETW events to flush...");
     std::thread::sleep(Duration::from_secs(3));
 
     log::info!("Stopping trace session by name to allow rundown processing...");

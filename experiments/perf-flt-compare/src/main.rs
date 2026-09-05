@@ -151,14 +151,22 @@ fn run_config(pass: usize, cfg: Config) -> Vec<RawEvent> {
 
 /// Trigger file system operations via file-ops-trigger binary.
 fn trigger_io() {
+    log::debug!("Invoking file-ops-trigger...");
     let bin = file_ops_trigger::bin_path();
-    let output = std::process::Command::new(&bin)
-        .output()
-        .unwrap_or_else(|e| panic!("failed to spawn {}: {e}", bin.display()));
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        log::warn!("file-ops-trigger failed: {}", stderr);
+    match std::process::Command::new(&bin).output() {
+        Ok(output) => {
+            log::debug!("file-ops-trigger exited with status: {}", output.status);
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                log::warn!("file-ops-trigger failed: {}", stderr);
+            }
+        }
+        Err(e) => {
+            log::warn!("Failed to invoke file-ops-trigger: {}", e);
+        }
     }
+    log::debug!("Waiting for ETW events to flush...");
+    std::thread::sleep(Duration::from_secs(3));
 }
 
 /// Human-readable report of the verdict.
