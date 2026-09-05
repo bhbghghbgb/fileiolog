@@ -33,14 +33,13 @@ struct TestConfig {
 }
 
 fn main() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .format_timestamp_millis()
-        .init();
-
     let args = Args::parse();
     let output_dir = &args.output;
     let persist_path = output_dir.join("fileio_test_results.json");
     let events_dir = output_dir.join(EVENTS_DIR);
+
+    let _ = fs::create_dir_all(output_dir);
+    fileiolog::logging::init_logging(output_dir, "fileio-trace-test");
 
     log::info!("=== FileIo ETW Trace Test ===");
     log::info!("This test will iterate through different EnableFlags and PERFINFO_GROUPMASK");
@@ -156,6 +155,9 @@ fn main() {
 
     // Display cumulative results
     persist::display(&persisted, &current_counts);
+
+    // Write human-readable text output
+    write_text_summary(output_dir, &persisted, &current_counts, &test_configs);
 }
 
 /// Build all test configurations (EnableFlags and PERFINFO_GROUPMASK)
@@ -416,4 +418,110 @@ fn write_events_to_file(
             log::error!("Failed to serialize events for '{}': {}", config_name, e);
         }
     }
+}
+
+/// Write a human-readable text summary of the cumulative results
+fn write_text_summary(
+    output_dir: &Path,
+    persisted: &persist::PersistedData,
+    current: &HashMap<String, HashMap<String, usize>>,
+    test_configs: &[TestConfig],
+) {
+    use events::EVENT_REGISTRY;
+
+    let txt_path = output_dir.join("fileio_test_results.txt");
+    let mut txt = String::from("=== FileIo ETW Trace Test Results ===\n\n");
+    txt.push_str(&format!("Total runs: {}\n\n", persisted.total_runs));
+
+    txt.push_str("Configurations tested:\n");
+    for config in test_configs {
+        let ef = config.enable_flags.map(|f| format!("0x{:08X}", f)).unwrap_or_else(|| "None".into());
+        let gm = config.group_mask.map(|m| {
+            format!("[{:08X},{:08X},{:08X},{:08X},{:08X},{:08X},{:08X},{:08X}]",
+                m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7])
+        }).unwrap_or_else(|| "None".into());
+        txt.push_str(&format!("  {}: EF={}, GM={}\n", config.name, ef, gm));
+    }
+    txt.push('\n');
+
+    // Collect all event keys across all configs
+    let mut all_events: Vec<(String, String, Vec<(String, usize, usize)>)> = Vec::new();
+    let mut seen_keys: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for (_config_name, persisted_events) in &persisted.config_events {
+        for (ek, &_cumulative_count) in persisted_events {
+            if seen_keys.contains(ek) {
+                continue;
+            }
+            seen_keys.insert(ek.clone());
+
+            let mut config_entries: Vec<(String, usize, usize)> = Vec::new();
+            for (cn, pe) in &persisted.config_events {
+                if let Some(&cc) = pe.get(ek) {
+                    let current_count = current.get(cn).and_then(|ce| ce.get(ek)).copied().unwrap_or(0);
+                    config_entries.push((cn.clone(), current_count, cc));
+                }
+            }
+            config_entries.sort_by(|a, b| a.0.cmp(&b.0));
+
+            let (opcode, version) = match parse_event_key(ek) {
+                Some(v) => v,
+                None => continue,
+            };
+            let label = if let Some(known) = EVENT_REGISTRY.get(&(opcode, version)) {
+                format!("{} [{}] (Opcode={}, Version={})", known.event_name, known.class_name, opcode, version)
+            } else {
+                format!("UNKNOWN (Opcode={}, Version={})", opcode, version)
+            };
+            all_events.push((label, ek.clone(), config_entries));
+        }
+    }
+
+    // Sort by opcode/version
+    all_events.sort_by(|a, b| {
+        let (op_a, ver_a) = parse_event_key(&a.1).unwrap_or((0, 0));
+        let (op_b, ver_b) = parse_event_key(&b.1).unwrap_or((0, 0));
+        op_a.cmp(&op_b).then(ver_a.cmp(&ver_b))
+    });
+
+    txt.push_str("=== Cumulative Event Counts ===\n\n");
+    for (label, _ek, config_entries) in &all_events {
+        txt.push_str(&format!("{}\n", label));
+        for (config_name, current_count, cumulative_count) in config_entries {
+            if *current_count > 0 {
+                txt.push_str(&format!("    {}: {} this run, {} cumulative\n", config_name, current_count, cumulative_count));
+            } else {
+                txt.push_str(&format!("    {}: 0 this run, {} cumulative\n", config_name, cumulative_count));
+            }
+        }
+        txt.push('\n');
+    }
+
+    // Warn about never-received events
+    let received_keys: std::collections::HashSet<String> = persisted.config_events.values().flat_map(|m| m.keys().cloned()).collect();
+    let mut unreceived: Vec<_> = EVENT_REGISTRY.iter()
+        .filter(|((op, ver), _)| !received_keys.contains(&format!("{}:{}", op, ver)))
+        .collect();
+    unreceived.sort_by_key(|((op, ver), _)| (*op, *ver));
+
+    if !unreceived.is_empty() {
+        txt.push_str("--- Events NEVER received ---\n");
+        for ((opcode, version), def) in &unreceived {
+            txt.push_str(&format!("  {} [{}] (Opcode={}, Version={})\n", def.event_name, def.class_name, opcode, version));
+        }
+    }
+
+    if let Err(e) = fs::write(&txt_path, &txt) {
+        log::error!("Failed to write text output: {}", e);
+    } else {
+        log::info!("Text output saved to {}", txt_path.display());
+    }
+}
+
+fn parse_event_key(key: &str) -> Option<(u8, u8)> {
+    let parts: Vec<&str> = key.split(':').collect();
+    if parts.len() != 2 { return None; }
+    let opcode = parts[0].parse::<u8>().ok()?;
+    let version = parts[1].parse::<u8>().ok()?;
+    Some((opcode, version))
 }

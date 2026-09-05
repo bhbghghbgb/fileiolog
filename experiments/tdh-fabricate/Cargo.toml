@@ -19,3 +19,4 @@ windows = { version = "0.61", features = [
 
 hex = "0.4"
 file-ops-trigger = { path = "../file-ops-trigger" }
+fileiolog = { path = "../../" }

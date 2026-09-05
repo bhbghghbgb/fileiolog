@@ -8,7 +8,7 @@ mod output;
 mod trace_session;
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use clap::Parser as ClapParser;
 
@@ -24,11 +24,11 @@ struct Args {
 const RESULTS_FILE: &str = "flag_discovery_results.json";
 
 fn main() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .format_timestamp_millis().init();
-
     let args = Args::parse();
     let output_dir = &args.output;
+
+    let _ = fs::create_dir_all(output_dir);
+    fileiolog::logging::init_logging(output_dir, "fileio-flag-discovery");
 
     log::info!("=== FileIo Flag Discovery ===");
     log::info!("Runs per combination: {}", discovery::RUNS_PER_COMBO);

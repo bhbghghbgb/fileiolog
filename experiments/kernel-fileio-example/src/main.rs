@@ -255,10 +255,11 @@ fn parse_event(opcode: u8, parser: &Parser) -> Option<ParsedEvent> {
 }
 
 fn main() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-
     let args = Args::parse();
     let output_dir = &args.output;
+
+    let _ = std::fs::create_dir_all(output_dir);
+    fileiolog::logging::init_logging(output_dir, "kernel-fileio-example");
 
     log::info!("Starting old NT Kernel FileIO trace...");
 
@@ -323,6 +324,14 @@ fn main() {
         .expect("Failed to start kernel trace (run as Administrator!)");
 
     log::info!("Kernel FileIO trace active for 3 seconds...");
+
+    // Trigger file operations to generate ETW events
+    log::info!("Triggering file operations...");
+    let bin = file_ops_trigger::bin_path();
+    let _ = std::process::Command::new(&bin)
+        .output()
+        .map_err(|e| log::warn!("Failed to invoke file-ops-trigger: {}", e));
+
     std::thread::sleep(Duration::from_secs(3));
 
     log::info!("Stopping trace session by name to allow rundown processing...");

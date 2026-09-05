@@ -116,6 +116,13 @@ fn capture_kernel_events(
         let _ = <KernelTrace as TraceTrait>::process_from_handle(proc_handle);
     });
 
+    // Trigger file operations to generate ETW events for the trace session
+    log::info!("Triggering file operations for kernel capture...");
+    let bin = file_ops_trigger::bin_path();
+    let _ = std::process::Command::new(&bin)
+        .output()
+        .map_err(|e| log::warn!("Failed to invoke file-ops-trigger: {}", e));
+
     std::thread::sleep(Duration::from_secs(duration_secs));
     let _ = stop_trace_by_name(session_name);
     let _ = thread.join();

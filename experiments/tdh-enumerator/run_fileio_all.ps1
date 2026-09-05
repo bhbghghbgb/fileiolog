@@ -51,12 +51,11 @@ function Invoke-Run {
     )
     Write-Host "`n[$Tag] $Label" -ForegroundColor Cyan
 
-    $outFile = Join-Path $OutputDir "tdh_output_$Tag"
     $argsList = @(
         "-g", $Guid,
         "-d", $Duration.ToString(),
-        "--trigger",
-        "-o", $outFile
+        "-o", $OutputDir,
+        "--output-prefix", "tdh_output_$Tag"
     ) + $ExtraArgs
 
     & $ExePath @argsList

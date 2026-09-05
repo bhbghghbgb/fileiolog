@@ -18,8 +18,6 @@ struct Args {
 }
 
 fn main() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-
     let args = Args::parse();
     let output_dir = &args.output;
 
@@ -27,6 +25,8 @@ fn main() {
         eprintln!("Failed to create output directory: {}", e);
         std::process::exit(1);
     }
+
+    fileiolog::logging::init_logging(output_dir, "tdh-fabricate");
 
     let txt_path = output_dir.join("tdh_fabricate_output.txt");
 

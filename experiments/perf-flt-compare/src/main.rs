@@ -4,7 +4,7 @@ mod session;
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -25,16 +25,15 @@ const PAUSE_BETWEEN_PASSES_SECS: u64 = 2;
 struct Args {
     /// Output directory for results
     #[arg(short, long, default_value = "output")]
-    output: PathBuf,
+    output: std::path::PathBuf,
 }
 
 fn main() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .format_timestamp_millis()
-        .init();
-
     let args = Args::parse();
     let output_dir = &args.output;
+
+    let _ = fs::create_dir_all(output_dir);
+    fileiolog::logging::init_logging(output_dir, "perf-flt-compare");
 
     log::info!("=== PERF_FLT_IO vs PERF_FLT_FASTIO: intrinsic-discriminator comparison ===");
     log::info!("Research basis: PERF_FLT_IO = SYSTEM_IOFILTER_KW_GENERAL (IRP-based),");
@@ -150,82 +149,16 @@ fn run_config(pass: usize, cfg: Config) -> Vec<RawEvent> {
     events.lock().unwrap().clone()
 }
 
-/// Identical, fixed file-system workload used by every configuration so that
-/// fingerprints are directly comparable.
+/// Trigger file system operations via file-ops-trigger binary.
 fn trigger_io() {
-    let test_dir = Path::new("C:\\temp_flt_compare");
-
-    let _ = fs::create_dir_all(test_dir);
-
-    // Create files (IRP-heavy path).
-    for i in 0..10 {
-        let path = test_dir.join(format!("t_{}.dat", i));
-        let _ = fs::write(&path, format!("data {}", i));
+    let bin = file_ops_trigger::bin_path();
+    let output = std::process::Command::new(&bin)
+        .output()
+        .unwrap_or_else(|e| panic!("failed to spawn {}: {e}", bin.display()));
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        log::warn!("file-ops-trigger failed: {}", stderr);
     }
-
-    // Read back (cached -> fast I/O eligible).
-    for i in 0..10 {
-        let path = test_dir.join(format!("t_{}.dat", i));
-        let _ = fs::read(&path);
-    }
-
-    // Write again (cached -> fast I/O eligible).
-    for i in 0..10 {
-        let path = test_dir.join(format!("t_{}.dat", i));
-        let _ = fs::write(&path, format!("updated {}", i));
-    }
-
-    // Open + write + flush via OpenOptions.
-    for i in 0..5 {
-        let path = test_dir.join(format!("t_{}.dat", i));
-        if let Ok(mut file) = std::fs::OpenOptions::new().write(true).open(&path) {
-            use std::io::Write;
-            let _ = file.write_all(b"flush payload");
-            let _ = file.flush();
-        }
-    }
-
-    // Memory-mapped read+write.
-    trigger_mmap(test_dir);
-
-    // Delete files (IRP-heavy path).
-    for i in 0..10 {
-        let path = test_dir.join(format!("t_{}.dat", i));
-        let _ = fs::remove_file(&path);
-    }
-
-    let _ = fs::remove_dir_all(test_dir);
-}
-
-fn trigger_mmap(dir: &Path) {
-    use std::fs::OpenOptions;
-    use std::io::Write;
-
-    let path = dir.join("t_mmap.bin");
-    {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&path)
-            .unwrap();
-        file.write_all(&[0u8; 8192]).unwrap();
-        file.flush().unwrap();
-    }
-    let file = OpenOptions::new().read(true).write(true).open(&path).unwrap();
-    let mut mmap = unsafe { memmap2::MmapMut::map_mut(&file).unwrap() };
-    let pattern: Vec<u8> = (0..256).map(|b| b as u8).collect();
-    for slot in mmap.chunks_mut(256) {
-        slot.copy_from_slice(&pattern);
-    }
-    mmap.flush().unwrap();
-    for chunk in mmap.chunks(256) {
-        let _sum: u64 = chunk.iter().map(|&b| b as u64).sum();
-    }
-    drop(mmap);
-    drop(file);
-    let _ = fs::remove_file(&path);
 }
 
 /// Human-readable report of the verdict.

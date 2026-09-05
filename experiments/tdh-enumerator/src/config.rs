@@ -41,17 +41,21 @@ pub struct AppConfig {
     #[arg(long, default_value_t = 255)]
     pub level: u8,
 
+    /// Output directory for results
+    #[arg(short, long, default_value = "output")]
+    pub output: std::path::PathBuf,
+
     /// Output file prefix (files will be .json and .txt)
-    #[arg(short, long, default_value = "tdh_output")]
+    #[arg(long, default_value = "tdh_output")]
     pub output_prefix: String,
 
     /// Enable verbose logging
     #[arg(short, long)]
     pub verbose: bool,
 
-    /// Trigger file-ops-trigger after the session starts processing events
+    /// Do NOT trigger file-ops-trigger during the session
     #[arg(long)]
-    pub trigger: bool,
+    pub no_trigger: bool,
 }
 
 impl AppConfig {

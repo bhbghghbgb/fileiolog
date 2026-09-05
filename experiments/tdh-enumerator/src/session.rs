@@ -126,7 +126,8 @@ fn run_kernel_session(config: &AppConfig) -> Result<(), String> {
         Arc::new(std::sync::RwLock::new(HashMap::with_capacity(256)));
     let logged_errors: Arc<std::sync::RwLock<HashSet<String>>> =
         Arc::new(std::sync::RwLock::new(HashSet::new()));
-    let disk_writer = Arc::new(DiskWriter::new(&config.output_prefix));
+    let output_path = config.output.join(&config.output_prefix);
+    let disk_writer = Arc::new(DiskWriter::new(&output_path.to_string_lossy()));
 
     let kernel_provider = KernelProvider::new(provider_guid, enable_flags);
 
@@ -165,8 +166,8 @@ fn run_kernel_session(config: &AppConfig) -> Result<(), String> {
         config.duration
     );
 
-    // Trigger file operations if requested
-    if config.trigger {
+    // Trigger file operations (default: enabled unless --no-trigger)
+    if !config.no_trigger {
         log::info!("Triggering file operations...");
         crate::file_ops::trigger_all_file_operations();
         log::info!("File operations completed");
@@ -208,7 +209,8 @@ fn run_user_session(config: &AppConfig) -> Result<(), String> {
         Arc::new(std::sync::RwLock::new(HashMap::with_capacity(256)));
     let logged_errors: Arc<std::sync::RwLock<HashSet<String>>> =
         Arc::new(std::sync::RwLock::new(HashSet::new()));
-    let disk_writer = Arc::new(DiskWriter::new(&config.output_prefix));
+    let output_path = config.output.join(&config.output_prefix);
+    let disk_writer = Arc::new(DiskWriter::new(&output_path.to_string_lossy()));
 
     let cb = build_callback(seen_types.clone(), disk_writer.clone(), logged_errors.clone());
     let provider = Provider::by_guid(provider_guid)
@@ -235,8 +237,8 @@ fn run_user_session(config: &AppConfig) -> Result<(), String> {
         config.duration
     );
 
-    // Trigger file operations if requested
-    if config.trigger {
+    // Trigger file operations (default: enabled unless --no-trigger)
+    if !config.no_trigger {
         log::info!("Triggering file operations...");
         crate::file_ops::trigger_all_file_operations();
         log::info!("File operations completed");
