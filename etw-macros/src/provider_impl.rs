@@ -122,21 +122,27 @@ impl Parse for EtwProviderInput {
 
             let fields_content;
             syn::braced!(fields_content in content);
-            let fields = fields_content.parse_terminated(Field::parse_named, Token![,])?;
+            // Parse fields and optional trailing `impl { ... }` block manually,
+            // so we can stop before the impl block instead of choking on it.
+            let mut fields = Punctuated::<Field, Token![,]>::new();
+            let mut impl_items: Option<proc_macro2::TokenStream> = None;
 
-            // Parse optional impl block after fields (for custom methods on the struct)
-            let impl_items: Option<proc_macro2::TokenStream> = if !fields_content.is_empty() {
-                // Consume trailing comma if present
-                let _ = fields_content.parse::<Token![,]>();
-                // Parse impl keyword
-                fields_content.parse::<Token![impl]>()?;
-                let impl_content;
-                syn::braced!(impl_content in fields_content);
-                let tokens: proc_macro2::TokenStream = impl_content.parse()?;
-                Some(tokens)
-            } else {
-                None
-            };
+            while !fields_content.is_empty() {
+                if fields_content.peek(Token![impl]) {
+                    fields_content.parse::<Token![impl]>()?;
+                    let impl_content;
+                    syn::braced!(impl_content in fields_content);
+                    let tokens: proc_macro2::TokenStream = impl_content.parse()?;
+                    impl_items = Some(tokens);
+                    break;
+                }
+                let field = Field::parse_named(&fields_content)?;
+                fields.push_value(field);
+                if fields_content.peek(Token![,]) {
+                    let punct: Token![,] = fields_content.parse()?;
+                    fields.push_punct(punct);
+                }
+            }
 
             let mut event_attrs: Vec<Attribute> = Vec::new();
             let mut other_attrs: Vec<Attribute> = Vec::new();
