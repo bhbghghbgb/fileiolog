@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 //! TDH (Trace Data Helper) API wrapper functions.
 //!
 //! Wraps TdhGetEventInformation and provides result types for experiment use.

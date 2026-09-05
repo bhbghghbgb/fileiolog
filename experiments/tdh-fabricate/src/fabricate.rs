@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 //! Core module for fabricating EVENT_RECORD structures in memory.
 //!
 //! Since ferrisetw's EventRecord is `#[repr(transparent)]` over Windows' EVENT_RECORD,
